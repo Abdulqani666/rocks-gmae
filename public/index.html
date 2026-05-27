@@ -103,7 +103,7 @@ h1 {
 .diff-btn.selected { transform:scale(1.06); box-shadow:0 0 14px rgba(232,160,32,0.4); border-color:var(--accent); }
 
 /* ONLINE SCREEN */
-#onlineScreen { display:none; flex-direction:column; align-items:center; gap:12px; margin-top:16px; width:100%; max-width:320px; }
+#onlineScreen { display:none; flex-direction:column; align-items:center; gap:10px; margin-top:8px; width:100%; max-width:320px; padding-bottom:8px; }
 .online-title { font-family:'Bebas Neue',sans-serif; font-size:1.3rem; letter-spacing:0.12em; color:#60c0ff; }
 .online-btn {
   width:100%; padding:14px; border:none; border-radius:12px; font-family:'Bebas Neue',sans-serif;
@@ -112,7 +112,15 @@ h1 {
 }
 .online-btn.create { background:#1a3a6a; color:#60c0ff; border:2px solid #3060a0; }
 .online-btn.join-b { background:transparent; color:#60c0ff; border:2px solid #3060a0; }
-.online-back { font-family:'Bebas Neue',sans-serif; font-size:0.9rem; color:#a07840; cursor:pointer; text-decoration:underline; }
+.online-back { 
+  width:100%; padding:12px; border-radius:10px;
+  border:1.5px solid var(--accent); background:transparent;
+  color:var(--accent); font-family:'Bebas Neue',sans-serif;
+  font-size:1rem; letter-spacing:0.1em; cursor:pointer;
+  text-align:center; transition:all 0.2s; text-decoration:none;
+  display:block;
+}
+.online-back:hover { background:rgba(232,160,32,0.1); }
 .room-code-box { background:#0a1a2a; border:2px solid #3060a0; border-radius:10px; padding:14px 20px; text-align:center; width:100%; }
 .room-code-box .lbl { font-size:0.8rem; color:#6090b0; margin-bottom:4px; }
 .room-code-box .code { font-family:'Bebas Neue',sans-serif; font-size:2.5rem; letter-spacing:0.3em; color:#60c0ff; }
@@ -317,7 +325,7 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
     <div class="code" id="roomCodeText">------</div>
     <div class="sub">Waiting for opponent...</div>
   </div>
-  <div class="online-back" onclick="backToMenu()">← Back to Menu</div>
+  <button class="online-back" onclick="backToMenu()">← BACK TO MENU</button>
 </div>
 
 <!-- COLOR SELECTION SCREEN -->
@@ -336,7 +344,7 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
       <small style="font-size:0.65rem;opacity:0.6;letter-spacing:0.05em;">MOVES SECOND</small>
     </button>
   </div>
-  <button onclick="showScreen('modeScreen')" style="background:transparent;border:none;color:var(--text2);font-family:'Crimson Pro',serif;font-style:italic;font-size:0.9rem;cursor:pointer;text-decoration:underline;margin-top:4px;">← Back to Menu</button>
+  <button onclick="showScreen('modeScreen')" class="online-back">← BACK TO MENU</button>
 </div>
 
 <!-- GAME SCREEN -->
