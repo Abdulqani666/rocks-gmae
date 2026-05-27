@@ -129,11 +129,13 @@ function countRocks(board, p) {
 // ---- ROOM MANAGEMENT ----
 const rooms = new Map();
 
-function createRoom(hostSocketId) {
+function createRoom(hostSocketId, password) {
   const roomId = String(Math.floor(100000 + Math.random() * 900000));
   const room = {
     id: roomId,
+    password: password || null,
     players: { W: hostSocketId, B: null },
+    spectators: [],
     board: initBoardState(),
     currentPlayer: 'W',
     isFirstMove: true,
@@ -143,10 +145,28 @@ function createRoom(hostSocketId) {
     chainRock: null,
     lastMove: null,
     gameOver: false,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    undoStack: [],
+    undoCount: { W: 3, B: 3 },
+    pendingUndo: null,
+    rematchRequest: null
   };
   rooms.set(roomId, room);
   return room;
+}
+
+function snapshotRoom(room) {
+  return {
+    board: room.board.map(r => [...r]),
+    currentPlayer: room.currentPlayer,
+    isFirstMove: room.isFirstMove,
+    forcedRetaliation: room.forcedRetaliation,
+    retaliationTarget: room.retaliationTarget ? {...room.retaliationTarget} : null,
+    chainMode: room.chainMode,
+    chainRock: room.chainRock ? {...room.chainRock} : null,
+    lastMove: room.lastMove ? {...room.lastMove} : null,
+    undoCount: {...room.undoCount}
+  };
 }
 
 function broadcastRoom(room) {
@@ -161,9 +181,13 @@ function broadcastRoom(room) {
     lastMove: room.lastMove,
     aiControlling: room.aiControlling || null,
     gameOver: room.gameOver,
-    players: { W: !!room.players.W, B: !!room.players.B }
+    players: { W: !!room.players.W, B: !!room.players.B },
+    undoCount: room.undoCount,
+    spectatorCount: room.spectators ? room.spectators.length : 0
   };
   io.to(room.id).emit('gameState', state);
+  // Send to spectators too
+  if (room.spectators) room.spectators.forEach(sid => io.to(sid).emit('gameState', state));
 }
 
 setInterval(() => {
@@ -177,16 +201,25 @@ setInterval(() => {
 io.on('connection', (socket) => {
   console.log('Connected:', socket.id);
 
-  socket.on('createRoom', () => {
-    const room = createRoom(socket.id);
+  socket.on('createRoom', ({ password } = {}) => {
+    const room = createRoom(socket.id, password);
     socket.join(room.id);
-    socket.emit('roomCreated', { roomId: room.id, color: 'W' });
+    socket.emit('roomCreated', { roomId: room.id, color: 'W', hasPassword: !!password });
   });
 
-  socket.on('joinRoom', ({ roomId }) => {
+  socket.on('joinRoom', ({ roomId, password }) => {
     const room = rooms.get(roomId.toUpperCase().trim());
     if (!room) { socket.emit('joinError', 'Room not found. Check the code and try again.'); return; }
-    if (room.players.B) { socket.emit('joinError', 'Room is full.'); return; }
+    if (room.password && room.password !== password) { socket.emit('joinError', 'Wrong password.'); return; }
+    // If full, join as spectator
+    if (room.players.B) {
+      if (!room.spectators) room.spectators = [];
+      room.spectators.push(socket.id);
+      socket.join(room.id);
+      socket.emit('joinedAsSpectator', { roomId: room.id });
+      broadcastRoom(room);
+      return;
+    }
     if (room.gameOver) { socket.emit('joinError', 'Game already ended.'); return; }
     room.players.B = socket.id;
     socket.join(room.id);
@@ -211,6 +244,9 @@ io.on('connection', (socket) => {
     if (!isMoveValid(room.board, fromR, fromC, mv, room.isFirstMove, room.currentPlayer)) {
       socket.emit('moveError', 'Invalid move'); return;
     }
+    // Push snapshot for undo before applying move
+    room.undoStack.push(snapshotRoom(room));
+    if (room.undoStack.length > 10) room.undoStack.shift();
     room.lastMove = { fromR, fromC, toR: mv.r, toC: mv.c, player: playerColor };
     room.board = applyMove(room.board, fromR, fromC, mv);
     if (room.isFirstMove) room.isFirstMove = false;
@@ -273,16 +309,69 @@ io.on('connection', (socket) => {
   socket.on('requestRematch', ({ roomId }) => {
     const room = rooms.get(roomId);
     if (!room) return;
-    room.board = initBoardState();
-    room.currentPlayer = 'W'; room.isFirstMove = true;
-    room.forcedRetaliation = false; room.retaliationTarget = null;
-    room.chainMode = false; room.chainRock = null;
-    room.lastMove = null; room.gameOver = false;
-    room.aiControlling = null;
-    room.createdAt = Date.now();
-    broadcastRoom(room);
-    // If AI was controlling, restart AI if needed
-    if (room.aiControlling) scheduleAiMove(room);
+    const color = room.players.W === socket.id ? 'W' : 'B';
+    const opponent = color === 'W' ? 'B' : 'W';
+    room.rematchRequest = { requestedBy: color };
+    // Notify opponent
+    if (room.players[opponent]) {
+      io.to(room.players[opponent]).emit('rematchRequested', { by: color });
+    } else {
+      // No opponent (AI game or disconnected) — just reset
+      doRematch(room);
+    }
+  });
+
+  socket.on('acceptRematch', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room || !room.rematchRequest) return;
+    room.rematchRequest = null;
+    doRematch(room);
+  });
+
+  socket.on('declineRematch', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+    const color = room.players.W === socket.id ? 'W' : 'B';
+    const requester = room.rematchRequest ? room.rematchRequest.requestedBy : null;
+    room.rematchRequest = null;
+    if (requester && room.players[requester]) {
+      io.to(room.players[requester]).emit('rematchDeclined');
+    }
+  });
+
+  socket.on('requestUndo', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room || room.gameOver) return;
+    const color = room.players.W === socket.id ? 'W' : 'B';
+    if (room.undoCount[color] <= 0) { socket.emit('undoError', 'No undos remaining.'); return; }
+    if (room.undoStack.length === 0) { socket.emit('undoError', 'Nothing to undo.'); return; }
+    if (room.pendingUndo) { socket.emit('undoError', 'Undo already pending.'); return; }
+    const opponent = color === 'W' ? 'B' : 'W';
+    room.pendingUndo = { requestedBy: color };
+    if (room.players[opponent]) {
+      io.to(room.players[opponent]).emit('undoRequested', { by: color, remaining: room.undoCount[color] - 1 });
+    } else {
+      // No opponent (solo/AI) — auto accept
+      applyUndo(room, color);
+    }
+  });
+
+  socket.on('acceptUndo', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room || !room.pendingUndo) return;
+    const color = room.pendingUndo.requestedBy;
+    room.pendingUndo = null;
+    applyUndo(room, color);
+  });
+
+  socket.on('declineUndo', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+    const requester = room.pendingUndo ? room.pendingUndo.requestedBy : null;
+    room.pendingUndo = null;
+    if (requester && room.players[requester]) {
+      io.to(room.players[requester]).emit('undoDeclined');
+    }
   });
 
   socket.on('rejoinRoom', ({ roomId, color }) => {
@@ -309,6 +398,11 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log('Disconnected:', socket.id);
     for (const [id, room] of rooms.entries()) {
+      // Remove spectator if applicable
+      if (room.spectators) {
+        const si = room.spectators.indexOf(socket.id);
+        if (si !== -1) { room.spectators.splice(si, 1); broadcastRoom(room); continue; }
+      }
       const color = room.players.W === socket.id ? 'W'
                   : room.players.B === socket.id ? 'B' : null;
       if (!color) continue;
@@ -432,3 +526,36 @@ function endAiTurn(room) {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`ROCKS server on port ${PORT}`));
+
+// ---- HELPERS ----
+function doRematch(room) {
+  room.board = initBoardState();
+  room.currentPlayer = 'W'; room.isFirstMove = true;
+  room.forcedRetaliation = false; room.retaliationTarget = null;
+  room.chainMode = false; room.chainRock = null;
+  room.lastMove = null; room.gameOver = false;
+  room.aiControlling = null;
+  room.undoStack = [];
+  room.undoCount = { W: 3, B: 3 };
+  room.pendingUndo = null;
+  room.rematchRequest = null;
+  room.createdAt = Date.now();
+  broadcastRoom(room);
+  io.to(room.id).emit('rematchStarted');
+}
+
+function applyUndo(room, color) {
+  if (room.undoStack.length === 0) return;
+  const snap = room.undoStack.pop();
+  room.board          = snap.board.map(r => [...r]);
+  room.currentPlayer  = snap.currentPlayer;
+  room.isFirstMove    = snap.isFirstMove;
+  room.forcedRetaliation = snap.forcedRetaliation;
+  room.retaliationTarget = snap.retaliationTarget;
+  room.chainMode      = snap.chainMode;
+  room.chainRock      = snap.chainRock;
+  room.lastMove       = snap.lastMove;
+  room.undoCount[color]--;
+  broadcastRoom(room);
+  io.to(room.id).emit('undoApplied', { by: color, remaining: room.undoCount });
+}
