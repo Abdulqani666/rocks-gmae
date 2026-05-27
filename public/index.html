@@ -3,7 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ROCKS — The Game</title>
+<title>Rocks</title>
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#e8a020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rocks">
+<link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+<link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png">
+<link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512x512.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+<meta name="description" content="An original strategy board game by JK Technology">
+<meta name="application-name" content="Rocks">
 <script>
 // Load socket.io only when running from a server
 if (window.location.protocol !== 'file:') {
@@ -266,6 +280,9 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
   <button class="mode-btn vs-2p" onclick="showColorScreen('2p')"><span class="mode-icon">👥</span> 2 Players Offline</button>
   <button class="mode-btn vs-online" onclick="showOnlineScreen()"><span class="mode-icon">🌐</span> Online Multiplayer</button>
   <button class="lb-btn" onclick="showLeaderboard()">🏆 View Leaderboard</button>
+  <button id="installBtn" onclick="installPWA()" style="display:none;width:100%;padding:12px;border:2px solid #60c060;border-radius:10px;background:rgba(60,160,60,0.15);color:#80e080;font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:0.1em;cursor:pointer;align-items:center;justify-content:center;gap:8px;">
+    📲 Install App on Phone
+  </button>
 </div>
 
 <!-- LEADERBOARD MODAL -->
@@ -280,15 +297,6 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
 <!-- ONLINE LOBBY -->
 <div id="onlineScreen">
   <div class="online-title">🌐 Online Multiplayer</div>
-  <!-- FIX 2 — Rejoin banner (shown on page load if saved session exists) -->
-  <div id="rejoinBanner" style="display:none;width:100%;background:#0a1a2a;border:2px solid #3060a0;border-radius:10px;padding:14px 16px;text-align:center;">
-    <div style="font-size:0.8rem;color:#6090b0;margin-bottom:4px;">You were in a game!</div>
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:0.25em;color:#60c0ff;" id="rejoinCodeDisplay">----</div>
-    <div style="display:flex;gap:8px;margin-top:10px;">
-      <button onclick="doRejoinSaved()" style="flex:1;padding:10px;border:none;border-radius:8px;background:#3060a0;color:#fff;font-family:'Bebas Neue',sans-serif;font-size:1rem;cursor:pointer;">↩ Rejoin Game</button>
-      <button onclick="dismissRejoin()" style="padding:10px 14px;border:none;border-radius:8px;background:#1a2a3a;color:#6090b0;font-family:'Bebas Neue',sans-serif;font-size:1rem;cursor:pointer;">✕</button>
-    </div>
-  </div>
   <button class="online-btn create" onclick="createOnlineRoom()">➕ Create Room</button>
   <div style="color:#4a6080;font-size:0.85rem;">— or join with a code —</div>
   <div class="join-row">
@@ -306,21 +314,15 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
 
 <!-- COLOR SELECTION SCREEN -->
 <div id="colorScreen" style="display:none;flex-direction:column;align-items:center;gap:16px;margin-top:20px;width:100%;max-width:320px;">
-  <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.15em;color:var(--accent);text-align:center;">Choose Your Side</div>
-  <div style="font-style:italic;font-size:0.88rem;color:var(--text2);text-align:center;margin-bottom:4px;">Which color do you want to play?</div>
-  <div style="display:flex;gap:12px;width:100%;">
-    <button onclick="selectColor('W')" style="flex:1;padding:20px 10px;border:2px solid #c8b090;border-radius:14px;background:rgba(245,240,232,0.08);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.1em;color:#f5f0e8;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.background='rgba(245,240,232,0.18)';this.style.borderColor='#f5f0e8'" onmouseout="this.style.background='rgba(245,240,232,0.08)';this.style.borderColor='#c8b090'">
-      <span style="width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#e8dcc8 60%,#b89868);border:2px solid #a08060;display:inline-block;box-shadow:0 3px 10px rgba(0,0,0,0.4);"></span>
-      <span>⚪ WHITE</span>
-      <small style="font-size:0.65rem;opacity:0.6;letter-spacing:0.05em;">MOVES FIRST</small>
-    </button>
-    <button onclick="selectColor('B')" style="flex:1;padding:20px 10px;border:2px solid #5a4830;border-radius:14px;background:rgba(26,18,8,0.3);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.1em;color:#c8b090;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.background='rgba(26,18,8,0.55)';this.style.borderColor='#a08060'" onmouseout="this.style.background='rgba(26,18,8,0.3)';this.style.borderColor='#5a4830'">
-      <span style="width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#5a4830,#2a1e10 60%,#080604);border:2px solid #7a5a28;display:inline-block;box-shadow:0 3px 10px rgba(0,0,0,0.6);"></span>
-      <span>⚫ BLACK</span>
-      <small style="font-size:0.65rem;opacity:0.6;letter-spacing:0.05em;">MOVES SECOND</small>
-    </button>
-  </div>
-  <button onclick="showScreen('modeScreen')" style="background:transparent;border:none;color:var(--text2);font-family:'Crimson Pro',serif;font-style:italic;font-size:0.9rem;cursor:pointer;text-decoration:underline;margin-top:4px;">← Back to Menu</button>
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:0.12em;color:var(--accent);">Choose Your Color</div>
+  <div style="font-style:italic;font-size:0.9rem;color:var(--text2);text-align:center;">Which side do you want to play?</div>
+  <button onclick="selectColor('W')" style="width:100%;padding:18px;border:3px solid #e8d8b0;border-radius:14px;background:rgba(245,240,232,0.1);font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:0.1em;color:#f5f0e8;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;transition:all 0.2s;" onmouseover="this.style.background='rgba(245,240,232,0.2)'" onmouseout="this.style.background='rgba(245,240,232,0.1)'">
+    <span style="width:28px;height:28px;border-radius:50%;background:#f5f0e8;border:2px solid #c8b090;display:inline-block;"></span> ⚪ PLAY AS WHITE <small style="font-size:0.7rem;opacity:0.7">(moves first)</small>
+  </button>
+  <button onclick="selectColor('B')" style="width:100%;padding:18px;border:3px solid #5a4830;border-radius:14px;background:rgba(26,18,8,0.4);font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:0.1em;color:#c8b090;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;transition:all 0.2s;" onmouseover="this.style.background='rgba(26,18,8,0.6)'" onmouseout="this.style.background='rgba(26,18,8,0.4)'">
+    <span style="width:28px;height:28px;border-radius:50%;background:#1a1208;border:2px solid #7a5a30;display:inline-block;"></span> ⚫ PLAY AS BLACK <small style="font-size:0.7rem;opacity:0.7">(moves second)</small>
+  </button>
+  <button onclick="showScreen('modeScreen')" style="background:transparent;border:none;color:var(--text2);font-family:'Crimson Pro',serif;font-style:italic;font-size:0.9rem;cursor:pointer;text-decoration:underline;">← Back</button>
 </div>
 
 <!-- GAME SCREEN -->
@@ -407,6 +409,35 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
 <div class="footer">Powered by <span style="color:#a07840;font-weight:600;">JK Technology</span></div>
 
 <script>
+// ===== PWA SERVICE WORKER =====
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('[PWA] Registered'))
+      .catch(err => console.log('[PWA] Failed:', err));
+  });
+}
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferredPrompt = e;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'none';
+});
+function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => {
+    deferredPrompt = null;
+    const btn = document.getElementById('installBtn');
+    if (btn) btn.style.display = 'none';
+  });
+}
+
 // ===== THEME =====
 let isDark = localStorage.getItem('rocks_theme') !== 'light';
 
@@ -647,7 +678,7 @@ function selectDiff(d) {
 
 // ===== NAVIGATION =====
 function showScreen(id) {
-  ['modeScreen','onlineScreen','gameScreen','colorScreen'].forEach(s => {
+  ['modeScreen','onlineScreen','gameScreen'].forEach(s => {
     document.getElementById(s).style.display = 'none';
   });
   document.getElementById(id).style.display = 'flex';
@@ -658,7 +689,6 @@ function goToMenu() {
   document.getElementById('leaveModal').classList.remove('open');
   if (socket) { socket.disconnect(); socket = null; }
   onlineRoomId = null; myColor = null; gameMode = '2p';
-  localStorage.removeItem('rocks_rejoin');
   stopBgMusic();
   showScreen('modeScreen');
 }
@@ -666,7 +696,6 @@ function goToMenu() {
 function backToMenu() {
   if (socket) { socket.disconnect(); socket = null; }
   onlineRoomId = null; myColor = null;
-  localStorage.removeItem('rocks_rejoin');
   showScreen('modeScreen');
 }
 
@@ -926,6 +955,7 @@ function endTurn() {
     currentPlayer=currentPlayer==='W'?'B':'W';
     updateUI(); draw();
     if (gameMode==='ai' && currentPlayer!==humanColor) {
+      document.getElementById('aiThinking').style.display='block';
       setTimeout(aiMove, difficulty==='easy'?600:difficulty==='hard'?900:1200);
     }
   }
@@ -1085,11 +1115,6 @@ function scoreBoard() {
 
 function aiMove() {
   if (gameOver) return;
-  document.getElementById('aiThinking').style.display='block';
-
-  // Defer the actual calculation so browser renders "AI is thinking..." first
-  setTimeout(function() {
-  if (gameOver) { document.getElementById('aiThinking').style.display='none'; return; }
   document.getElementById('aiThinking').style.display='none';
 
   // AI plays whichever color the human didn't choose
@@ -1183,7 +1208,7 @@ function aiMove() {
   }
   if (!chosen||chosen.fr===undefined) chosen=pool[0];
 
-  lastMove = { fromR:chosen.fr, fromC:chosen.fc, toR:chosen.mv.r, toC:chosen.mv.c, player: aiColor };
+  room.lastMove = { fromR:chosen.fr, fromC:chosen.fc, toR:chosen.mv.r, toC:chosen.mv.c, player:'W' };
 
   applyMove(chosen.fr,chosen.fc,chosen.mv);
   if (isFirstMove) isFirstMove=false;
@@ -1202,7 +1227,6 @@ function aiMove() {
 
   checkWin();
   if (!gameOver){currentPlayer=humanColor; updateUI(); draw();}
-  }, 0); // end setTimeout — lets browser paint "AI is thinking..." before calculation
 }
 
 // ===== UI =====
@@ -1253,39 +1277,8 @@ function showOnlineScreen() {
   document.getElementById('onlineStatus').textContent='';
   document.getElementById('roomCodeBox').style.display='none';
   document.getElementById('joinCodeInput').value='';
-  // FIX 2 — Show rejoin banner if a saved session exists
-  const saved = getRejoinData();
-  if (saved) {
-    document.getElementById('rejoinCodeDisplay').textContent = saved.roomId;
-    document.getElementById('rejoinBanner').style.display = 'block';
-  } else {
-    document.getElementById('rejoinBanner').style.display = 'none';
-  }
   showScreen('onlineScreen');
   connectSocket();
-}
-
-// FIX 2 — Rejoin banner helpers
-function getRejoinData() {
-  try { return JSON.parse(localStorage.getItem('rocks_rejoin') || 'null'); } catch(e) { return null; }
-}
-function doRejoinSaved() {
-  const saved = getRejoinData();
-  if (!saved) return;
-  onlineRoomId = saved.roomId;
-  myColor = saved.color;
-  document.getElementById('rejoinBanner').style.display = 'none';
-  setOnlineSt('Rejoining...', '');
-  if (!socket || !socket.connected) {
-    connectSocket();
-    setTimeout(tryRejoin, 1200);
-  } else {
-    tryRejoin();
-  }
-}
-function dismissRejoin() {
-  localStorage.removeItem('rocks_rejoin');
-  document.getElementById('rejoinBanner').style.display = 'none';
 }
 
 function setOnlineSt(msg,cls) {
@@ -1304,7 +1297,6 @@ function connectSocket() {
 
   socket.on('roomCreated', ({roomId,color})=>{
     onlineRoomId=roomId; myColor=color;
-    localStorage.setItem('rocks_rejoin', JSON.stringify({roomId, color}));
     document.getElementById('roomCodeText').textContent=roomId;
     document.getElementById('roomCodeBox').style.display='block';
     setOnlineSt('','');
@@ -1312,7 +1304,6 @@ function connectSocket() {
 
   socket.on('roomJoined', ({roomId,color})=>{
     onlineRoomId=roomId; myColor=color;
-    localStorage.setItem('rocks_rejoin', JSON.stringify({roomId, color}));
     setOnlineSt('Joined! Starting...','ok');
   });
 
@@ -1332,13 +1323,7 @@ function connectSocket() {
     retaliationTarget=state.retaliationTarget; chainMode=state.chainMode;
     chainRock=state.chainRock||null; gameOver=state.gameOver;
     if (currentPlayer!==myColor){selected=null;validMoves=[];}
-if (chainMode&&currentPlayer===myColor) {
-  if (chainRock) {
-    validMoves=getEatMoves(chainRock.r,chainRock.c);
-    selected={r:chainRock.r,c:chainRock.c};
-  }
-  showChainBar();
-} else hideChainBar();
+    if (chainMode&&currentPlayer===myColor) showChainBar(); else hideChainBar();
     updateUI(); draw();
   });
 
@@ -1414,17 +1399,6 @@ function tryRejoin() {
   socket.emit('rejoinRoom', { roomId: onlineRoomId, color: myColor });
 }
 
-// FIX 1 — Reconnect when returning from another app (mobile backgrounding)
-document.addEventListener('visibilitychange', ()=>{
-  if (document.visibilityState === 'visible' && gameMode === 'online' && onlineRoomId && myColor) {
-    if (!socket || !socket.connected) {
-      document.getElementById('message').textContent = '⚠️ Reconnecting...';
-      if (!socket) connectSocket();
-      setTimeout(tryRejoin, 1500);
-    }
-  }
-});
-
 function createOnlineRoom() {
   if (!socket||!socket.connected){connectSocket();setTimeout(createOnlineRoom,900);return;}
   setOnlineSt('Creating room...','');
@@ -1491,4 +1465,4 @@ function handleOnlineClick(e) {
 }
 </script>
 </body>
-    </html>
+</html>
