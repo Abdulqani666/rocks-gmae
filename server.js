@@ -130,7 +130,7 @@ function countRocks(board, p) {
 const rooms = new Map();
 
 function createRoom(hostSocketId) {
-  const roomId = Math.random().toString(36).substr(2,6).toUpperCase();
+  const roomId = String(Math.floor(100000 + Math.random() * 900000));
   const room = {
     id: roomId,
     players: { W: hostSocketId, B: null },
