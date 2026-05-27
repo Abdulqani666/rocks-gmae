@@ -143,6 +143,9 @@ body.light .black-pick:hover { background:rgba(30,18,6,0.22); border-color:#1a0e
 .diff-btn.hard { background:#4a2a0a; color:#ffa040; border-color:#8a5a1a; }
 .diff-btn.legend { background:#3a0a1a; color:#ff4080; border-color:#8a1a4a; }
 .diff-btn.selected { transform:scale(1.06); box-shadow:0 0 14px rgba(232,160,32,0.4); border-color:var(--accent); }
+.action.undo { background:rgba(100,160,255,0.15); color:#80b0ff; border:1.5px solid #4060a0; }
+.action.undo:hover { background:rgba(100,160,255,0.28); }
+.action.undo:disabled { opacity:0.35; cursor:not-allowed; }
 
 /* ONLINE SCREEN */
 #onlineScreen { display:none; flex-direction:column; align-items:center; gap:10px; margin-top:8px; width:100%; max-width:320px; padding-bottom:8px; }
@@ -361,6 +364,8 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
     <input type="text" id="joinCodeInput" placeholder="ENTER CODE" maxlength="6" />
     <button onclick="joinOnlineRoom()">JOIN</button>
   </div>
+  <input type="text" id="joinPasswordInput" placeholder="Password (if required)" maxlength="20"
+    style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid #3060a0;background:var(--input-bg);color:var(--input-color);font-family:'Crimson Pro',serif;font-size:0.9rem;text-align:center;"/>
   <div class="online-status" id="onlineStatus"></div>
   <div id="roomCodeBox" style="display:none" class="room-code-box">
     <div class="lbl">Share this code with your opponent</div>
@@ -420,8 +425,10 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
   <div class="btn-row">
     <button class="action gold" onclick="goToMenu()">Menu</button>
     <button class="action outline" onclick="document.getElementById('rulesModal').classList.add('open')">Rules</button>
-    <button class="action danger" onclick="document.getElementById('leaveModal').classList.add('open')">Leave Game</button>
+    <button class="action undo" id="undoBtn" onclick="requestUndo()">↩ Undo <span id="undoCount"></span></button>
+    <button class="action danger" onclick="document.getElementById('leaveModal').classList.add('open')">Leave</button>
   </div>
+  <div id="spectatorBar" style="display:none;text-align:center;font-size:0.8rem;color:var(--text2);margin-top:4px;">👁 <span id="spectatorCount">0</span> watching</div>
 </div>
 
 <!-- Rules Modal -->
@@ -443,6 +450,55 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
       <li>Opponent left with <strong>1 rock</strong> → you win!</li>
     </ol>
     <button class="close-btn" onclick="document.getElementById('rulesModal').classList.remove('open')">Close</button>
+  </div>
+</div>
+
+<!-- Rematch Request Modal -->
+<div class="modal" id="rematchModal">
+  <div class="modal-box" style="text-align:center;">
+    <h2>Rematch?</h2>
+    <p style="color:var(--text2);font-style:italic;margin:8px 0 16px;" id="rematchMsg">Opponent wants a rematch!</p>
+    <div class="btn-group">
+      <button class="modal-btn confirm" onclick="respondRematch(true)">✅ Accept</button>
+      <button class="modal-btn cancel" onclick="respondRematch(false)">❌ Decline</button>
+    </div>
+  </div>
+</div>
+
+<!-- Undo Request Modal -->
+<div class="modal" id="undoModal">
+  <div class="modal-box" style="text-align:center;">
+    <h2>Undo Request</h2>
+    <p style="color:var(--text2);font-style:italic;margin:8px 0 16px;" id="undoMsg">Opponent wants to undo their last move.</p>
+    <div class="btn-group">
+      <button class="modal-btn confirm" onclick="respondUndo(true)">✅ Allow</button>
+      <button class="modal-btn cancel" onclick="respondUndo(false)">❌ Deny</button>
+    </div>
+  </div>
+</div>
+
+<!-- Spectator Modal -->
+<div class="modal" id="spectatorModal">
+  <div class="modal-box" style="text-align:center;">
+    <h2>👁 Watching</h2>
+    <p style="color:var(--text2);font-style:italic;margin:8px 0 16px;">This room is full. You are watching as a spectator.</p>
+    <div class="btn-group">
+      <button class="modal-btn cancel" onclick="document.getElementById('spectatorModal').classList.remove('open');backToMenu()">Leave</button>
+    </div>
+  </div>
+</div>
+
+<!-- Password Modal -->
+<div class="modal" id="passwordModal">
+  <div class="modal-box" style="text-align:center;">
+    <h2>🔒 Room Password</h2>
+    <p style="color:var(--text2);font-style:italic;margin:8px 0 12px;">Set a password (optional — leave blank for open room)</p>
+    <input type="text" id="passwordInput" placeholder="Leave blank for no password" maxlength="20"
+      style="width:100%;padding:10px;border-radius:8px;border:1.5px solid var(--accent);background:var(--input-bg);color:var(--input-color);font-family:'Crimson Pro',serif;font-size:1rem;text-align:center;margin-bottom:12px;"/>
+    <div class="btn-group">
+      <button class="modal-btn confirm" onclick="confirmCreateRoom()">Create Room</button>
+      <button class="modal-btn cancel" onclick="document.getElementById('passwordModal').classList.remove('open')">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -715,6 +771,11 @@ let forcedRetaliation = false, retaliationTarget = null;
 let lastMove = null; // {fromR, fromC, toR, toC, player} — highlight last move
 // Online state
 let socket = null, onlineRoomId = null, myColor = null;
+// Undo
+let undoStack = [];
+let undoCount = { W: 3, B: 3 };
+// Animation
+let activeAnims = [];
 
 // ===== DIFFICULTY =====
 let selectedDiff = 'easy';
@@ -782,7 +843,9 @@ function onPlayAgain() {
   document.getElementById('winnerOverlay').classList.remove('open');
   if (gameMode === 'online' && socket && onlineRoomId) {
     socket.emit('requestRematch', { roomId: onlineRoomId });
+    document.getElementById('message').textContent = '⏳ Waiting for opponent to accept rematch...';
   } else {
+    undoStack=[]; undoCount={W:3,B:3}; activeAnims=[];
     initBoard();
   }
 }
@@ -800,6 +863,8 @@ function initBoard() {
   forcedRetaliation=false; retaliationTarget=null;
   lastMove=null;
   window._retaliationMoves = [];
+  undoStack = []; undoCount = { W:3, B:3 }; activeAnims = [];
+  updateUndoBtn();
   hideChainBar(); updateUI(); draw();
 
   // In AI mode: if human chose White, AI plays Black and human goes first
@@ -812,6 +877,103 @@ function initBoard() {
       setTimeout(aiMove, 700);
     }
   }
+}
+
+// ===== ANIMATION SYSTEM =====
+function easeOut(t) { return 1 - Math.pow(1-t, 2); }
+
+function animateSlide(fromR, fromC, toR, toC, piece) {
+  activeAnims.push({ type:'slide', fromR, fromC, toR, toC, piece, startTime:performance.now(), duration:180 });
+  if (activeAnims.length === 1) requestAnimationFrame(animLoop);
+}
+function animateEat(r, c, piece) {
+  activeAnims.push({ type:'eat', r, c, piece, startTime:performance.now(), duration:200 });
+  if (activeAnims.length === 1) requestAnimationFrame(animLoop);
+}
+function animLoop(now) {
+  draw();
+  activeAnims = activeAnims.filter(a => {
+    const t = Math.min(1, (now - a.startTime) / a.duration);
+    if (a.type === 'slide') {
+      const x = nodeX(a.fromC) + (nodeX(a.toC)-nodeX(a.fromC)) * easeOut(t);
+      const y = nodeY(a.fromR) + (nodeY(a.toR)-nodeY(a.fromR)) * easeOut(t);
+      ctx.save(); drawRockAt(x, y, a.piece, false, false); ctx.restore();
+    } else if (a.type === 'eat') {
+      const x=nodeX(a.c), y=nodeY(a.r), scale=1-t;
+      ctx.save(); ctx.globalAlpha=1-t;
+      ctx.translate(x,y); ctx.scale(scale,scale); ctx.translate(-x,-y);
+      drawRockAt(x, y, a.piece, false, false);
+      ctx.restore();
+    }
+    return t < 1;
+  });
+  if (activeAnims.length > 0) requestAnimationFrame(animLoop);
+}
+
+// Standalone rock draw (used by animation loop — no selection state needed)
+function drawRockAt(x, y, v, isSel, isChain) {
+  const isW=v==='W'||v==='WD', isDbl=v==='WD'||v==='BD';
+  ctx.beginPath(); ctx.arc(x+2,y+3,R,0,Math.PI*2); ctx.fillStyle='rgba(0,0,0,0.38)'; ctx.fill();
+  if (isDbl) { ctx.beginPath(); ctx.arc(x,y,R+4,0,Math.PI*2); ctx.strokeStyle=isW?'#ffe066':'#ff6600'; ctx.lineWidth=3; ctx.stroke(); }
+  const g=ctx.createRadialGradient(x-5,y-5,2,x,y,R);
+  if (isW) { g.addColorStop(0,'#fff'); g.addColorStop(0.6,'#e8dcc8'); g.addColorStop(1,'#b89868'); }
+  else     { g.addColorStop(0,'#5a4830'); g.addColorStop(0.6,'#2a1e10'); g.addColorStop(1,'#080604'); }
+  ctx.beginPath(); ctx.arc(x,y,R,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
+  ctx.strokeStyle=isW?'#a08060':'#7a5a28'; ctx.lineWidth=1.5; ctx.stroke();
+  if (isDbl) { ctx.beginPath(); ctx.arc(x,y,R*0.45,0,Math.PI*2); ctx.strokeStyle=isW?'#d4a020':'#ff6600'; ctx.lineWidth=2; ctx.stroke(); }
+}
+
+// ===== UNDO =====
+function snapshotState() {
+  return {
+    board: board.map(r=>[...r]),
+    currentPlayer, isFirstMove, forcedRetaliation,
+    retaliationTarget: retaliationTarget ? {...retaliationTarget} : null,
+    chainMode, chainRock: chainRock ? {...chainRock} : null,
+    lastMove: lastMove ? {...lastMove} : null,
+    undoCount: {...undoCount}
+  };
+}
+
+function updateUndoBtn() {
+  const btn = document.getElementById('undoBtn');
+  const span = document.getElementById('undoCount');
+  if (!btn) return;
+  const myU = gameMode==='online' ? (undoCount[myColor]||0)
+            : gameMode==='ai'     ? (undoCount[humanColor]||0)
+            : Math.max(undoCount.W||0, undoCount.B||0);
+  if (span) span.textContent = myU > 0 ? `(${myU})` : '';
+  btn.disabled = myU <= 0 || undoStack.length === 0 || gameOver;
+}
+
+function requestUndo() {
+  if (gameMode === 'online') {
+    if (socket && onlineRoomId) socket.emit('requestUndo', { roomId: onlineRoomId });
+    return;
+  }
+  const color = gameMode==='ai' ? humanColor : currentPlayer;
+  if ((undoCount[color]||0) <= 0 || undoStack.length === 0) return;
+  const snap = undoStack.pop();
+  board=snap.board.map(r=>[...r]); currentPlayer=snap.currentPlayer;
+  isFirstMove=snap.isFirstMove; forcedRetaliation=snap.forcedRetaliation;
+  retaliationTarget=snap.retaliationTarget; chainMode=snap.chainMode;
+  chainRock=snap.chainRock; lastMove=snap.lastMove;
+  undoCount={...snap.undoCount}; undoCount[color]--;
+  activeAnims=[]; selected=null; validMoves=[];
+  hideChainBar(); updateUI(); draw(); updateUndoBtn();
+  saveGameState();
+}
+
+function respondRematch(accept) {
+  document.getElementById('rematchModal').classList.remove('open');
+  if (!socket || !onlineRoomId) return;
+  socket.emit(accept ? 'acceptRematch' : 'declineRematch', { roomId: onlineRoomId });
+}
+
+function respondUndo(accept) {
+  document.getElementById('undoModal').classList.remove('open');
+  if (!socket || !onlineRoomId) return;
+  socket.emit(accept ? 'acceptUndo' : 'declineUndo', { roomId: onlineRoomId });
 }
 
 // ===== DRAW =====
@@ -1087,8 +1249,17 @@ function discardSavedGame() {
 
 function doPlayerMove(mv) {
   const fromR=selected.r, fromC=selected.c;
+  // Snapshot before move (for undo)
+  undoStack.push(snapshotState());
+  if (undoStack.length > 12) undoStack.shift();
+  updateUndoBtn();
+  // Animate eaten piece fading out
+  if (mv.type==='eat') { const ev=board[mv.eatR][mv.eatC]; if(ev) animateEat(mv.eatR, mv.eatC, ev); }
+  const movingPiece = board[fromR][fromC];
   lastMove = {fromR, fromC, toR:mv.r, toC:mv.c, player:currentPlayer};
   applyMove(fromR,fromC,mv);
+  // Animate slide
+  animateSlide(fromR, fromC, mv.r, mv.c, movingPiece);
   if (isFirstMove) isFirstMove=false;
   const landR=mv.r, landC=mv.c;
   selected=null; validMoves=[];
@@ -1246,6 +1417,9 @@ function aiMove() {
   if (gameOver) { document.getElementById('aiThinking').style.display='none'; return; }
   document.getElementById('aiThinking').style.display='none';
 
+  // Push undo snapshot before AI move so human can undo it
+  undoStack.push(snapshotState());
+  if (undoStack.length > 12) undoStack.shift();
   // AI plays whichever color the human didn't choose
   const aiColor = humanColor==='W' ? 'B' : 'W';
   const oppColor = humanColor;
@@ -1479,20 +1653,21 @@ function connectSocket() {
 
   socket.on('gameState', state=>{
     if (gameMode!=='online') { showScreen('gameScreen'); gameMode='online'; }
-    // Track last move from server state
     if (state.lastMove) lastMove = state.lastMove;
     board=state.board; currentPlayer=state.currentPlayer;
     isFirstMove=state.isFirstMove; forcedRetaliation=state.forcedRetaliation;
     retaliationTarget=state.retaliationTarget; chainMode=state.chainMode;
     chainRock=state.chainRock||null; gameOver=state.gameOver;
     if (currentPlayer!==myColor){selected=null;validMoves=[];}
-if (chainMode&&currentPlayer===myColor) {
-  if (chainRock) {
-    validMoves=getEatMoves(chainRock.r,chainRock.c);
-    selected={r:chainRock.r,c:chainRock.c};
-  }
-  showChainBar();
-} else hideChainBar();
+    if (chainMode&&currentPlayer===myColor) {
+      if (chainRock) { validMoves=getEatMoves(chainRock.r,chainRock.c); selected={r:chainRock.r,c:chainRock.c}; }
+      showChainBar();
+    } else hideChainBar();
+    if (state.undoCount) { undoCount=state.undoCount; updateUndoBtn(); }
+    if (state.spectatorCount !== undefined) {
+      const bar=document.getElementById('spectatorBar'), cnt=document.getElementById('spectatorCount');
+      if (bar&&cnt) { cnt.textContent=state.spectatorCount; bar.style.display=state.spectatorCount>0?'block':'none'; }
+    }
     updateUI(); draw();
   });
 
@@ -1540,6 +1715,45 @@ if (chainMode&&currentPlayer===myColor) {
   });
 
   socket.on('moveError', msg=>{ document.getElementById('message').textContent='❌ '+msg; });
+
+  // ---- REMATCH ----
+  socket.on('rematchRequested', ()=>{
+    document.getElementById('rematchModal').classList.add('open');
+  });
+  socket.on('rematchDeclined', ()=>{
+    document.getElementById('message').textContent = '❌ Opponent declined the rematch.';
+  });
+  socket.on('rematchStarted', ()=>{
+    document.getElementById('rematchModal').classList.remove('open');
+    document.getElementById('winnerOverlay').classList.remove('open');
+    undoStack=[]; undoCount={W:3,B:3}; activeAnims=[];
+    updateUndoBtn();
+  });
+
+  // ---- UNDO ----
+  socket.on('undoRequested', ({by, remaining})=>{
+    document.getElementById('undoMsg').textContent =
+      `Opponent wants to undo. They will have ${remaining} undo(s) left after this.`;
+    document.getElementById('undoModal').classList.add('open');
+  });
+  socket.on('undoDeclined', ()=>{
+    document.getElementById('message').textContent = '❌ Undo request declined.';
+  });
+  socket.on('undoApplied', ({by, remaining})=>{
+    document.getElementById('undoModal').classList.remove('open');
+    undoCount = remaining; activeAnims = [];
+    updateUndoBtn();
+    document.getElementById('message').textContent = `↩ ${by==='W'?'White':'Black'} used an undo.`;
+  });
+  socket.on('undoError', msg=>{ document.getElementById('message').textContent='❌ '+msg; });
+
+  // ---- SPECTATOR ----
+  socket.on('joinedAsSpectator', ({roomId})=>{
+    onlineRoomId=roomId; gameMode='online'; myColor=null;
+    showScreen('gameScreen');
+    document.getElementById('spectatorModal').classList.add('open');
+    document.getElementById('undoBtn').style.display='none';
+  });
 }
 
 let _disconnectInterval = null;
@@ -1580,9 +1794,18 @@ document.addEventListener('visibilitychange', ()=>{
 });
 
 function createOnlineRoom() {
-  if (!socket||!socket.connected){connectSocket();setTimeout(createOnlineRoom,900);return;}
+  document.getElementById('passwordModal').classList.add('open');
+  document.getElementById('passwordInput').value = '';
+}
+function confirmCreateRoom() {
+  document.getElementById('passwordModal').classList.remove('open');
+  const pw = document.getElementById('passwordInput').value.trim();
+  if (!socket||!socket.connected){connectSocket();setTimeout(()=>_doCreateRoom(pw),900);return;}
+  _doCreateRoom(pw);
+}
+function _doCreateRoom(pw) {
   setOnlineSt('Creating room...','');
-  socket.emit('createRoom');
+  socket.emit('createRoom', { password: pw||null });
 }
 
 function joinOnlineRoom() {
@@ -1590,7 +1813,8 @@ function joinOnlineRoom() {
   if (code.length<4){setOnlineSt('Enter a valid room code','err');return;}
   if (!socket||!socket.connected){connectSocket();setTimeout(joinOnlineRoom,900);return;}
   setOnlineSt('Joining...','');
-  socket.emit('joinRoom',{roomId:code});
+  const joinPw = document.getElementById('joinPasswordInput') ? document.getElementById('joinPasswordInput').value.trim() : '';
+  socket.emit('joinRoom',{roomId:code, password: joinPw||null});
 }
 
 function handleOnlineClick(e) {
