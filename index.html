@@ -21,24 +21,52 @@ if (window.location.protocol !== 'file:') {
 </script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap');
-:root { --bg:#1a1208; --accent:#e8a020; --accent2:#ffc040; }
+:root {
+  --bg:#1a1208; --accent:#e8a020; --accent2:#ffc040;
+  --card-bg:rgba(255,255,255,0.04); --card-border:rgba(200,160,80,0.2);
+  --text:#e8d8b0; --text2:#a07840; --text3:#c8a060;
+  --modal-bg:#231a08; --board-bg:#b89050; --board-line:#5a3a10;
+  --board-border:#2a1400; --board-outline:#c87020;
+  --input-bg:#231a08; --input-color:#e8d8b0;
+  --subtitle-color:#a07840; --footer-color:#5a3a10;
+  --lb-border:#3a2a10; --lb-row:#2a1a08;
+}
+body.light {
+  --bg:#f0e8d0; --accent:#b06010; --accent2:#d08020;
+  --card-bg:rgba(0,0,0,0.04); --card-border:rgba(160,100,30,0.3);
+  --text:#2a1a08; --text2:#7a5020; --text3:#8a6030;
+  --modal-bg:#fff8ec; --board-bg:#c8a050; --board-line:#7a5010;
+  --board-border:#5a3000; --board-outline:#e8a020;
+  --input-bg:#fff8ec; --input-color:#2a1a08;
+  --subtitle-color:#7a5020; --footer-color:#c8a060;
+  --lb-border:#d8c090; --lb-row:#f0e8d0;
+}
 * { box-sizing:border-box; margin:0; padding:0; }
 body {
   background:var(--bg); font-family:'Crimson Pro',serif;
   min-height:100vh; display:flex; flex-direction:column; align-items:center;
-  padding:8px 6px 12px; color:#e8d8b0;
+  padding:8px 6px 12px; color:var(--text); transition:background 0.3s, color 0.3s;
 }
+/* THEME TOGGLE */
+#themeBtn {
+  position:fixed; top:10px; left:10px; z-index:300;
+  width:36px; height:36px; border-radius:50%; border:none;
+  background:rgba(232,160,32,0.15); color:var(--accent);
+  font-size:1.1rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:all 0.2s;
+}
+#themeBtn:hover { background:rgba(232,160,32,0.3); }
 h1 {
   font-family:'Bebas Neue',sans-serif; font-size:clamp(2rem,7vw,3.5rem);
   letter-spacing:0.18em; color:var(--accent);
   text-shadow:0 0 40px rgba(232,160,32,0.4); margin-bottom:0;
 }
-.subtitle { font-style:italic; font-size:0.85rem; color:#a07840; margin-bottom:8px; }
+.subtitle { font-style:italic; font-size:0.85rem; color:var(--subtitle-color); margin-bottom:8px; }
 
 /* MODE SCREEN */
 #modeScreen { display:flex; flex-direction:column; align-items:center; gap:12px; margin-top:16px; width:100%; max-width:320px; }
-.mode-title { font-family:'Bebas Neue',sans-serif; font-size:1.3rem; letter-spacing:0.12em; color:#c8a060; margin-bottom:2px; }
-.diff-title { font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:0.1em; color:#a07840; margin-top:6px; }
+.mode-title { font-family:'Bebas Neue',sans-serif; font-size:1.3rem; letter-spacing:0.12em; color:var(--text3); margin-bottom:2px; }
+.diff-title { font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:0.1em; color:var(--text2); margin-top:6px; }
 .mode-btn {
   width:100%; padding:14px; border:none; border-radius:12px;
   font-family:'Bebas Neue',sans-serif; font-size:1.2rem; letter-spacing:0.12em;
@@ -104,9 +132,9 @@ h1 {
 .diff-badge.hard { background:#4a2a0a; color:#ffa040; }
 .diff-badge.legend { background:#3a0a1a; color:#ff4080; }
 .diff-badge.online { background:#1a3a6a; color:#60c0ff; }
-.board-wrap { background:#b89050; border-radius:10px; padding:16px; box-shadow:0 8px 40px rgba(0,0,0,0.7); border:8px solid #2a1400; outline:3px solid #c87020; outline-offset:2px; }
+.board-wrap { background:var(--board-bg); border-radius:10px; padding:16px; box-shadow:0 8px 40px rgba(0,0,0,0.7); border:8px solid var(--board-border); outline:3px solid var(--board-outline); outline-offset:2px; }
 canvas { display:block; cursor:pointer; }
-.message { margin-top:7px; font-size:0.92rem; font-style:italic; color:#c8a060; min-height:1.2em; text-align:center; max-width:360px; padding:0 6px; }
+.message { margin-top:7px; font-size:0.92rem; font-style:italic; color:var(--text3); min-height:1.2em; text-align:center; max-width:360px; padding:0 6px; }
 #chainBar { display:none; flex-direction:column; align-items:center; gap:8px; margin-top:8px; width:100%; max-width:340px; }
 #chainBar .chain-msg { font-size:1rem; color:#ffe066; font-style:italic; text-align:center; }
 #chainBar .chain-btns { display:flex; gap:10px; }
@@ -121,11 +149,11 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
 .action.danger { background:transparent; color:#ff5050; border:1.5px solid #ff5050; }
 .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.82); z-index:100; align-items:center; justify-content:center; padding:20px; }
 .modal.open { display:flex; }
-.modal-box { background:#231a08; border:2px solid var(--accent); border-radius:12px; padding:26px 22px; max-width:360px; width:100%; max-height:82vh; overflow-y:auto; }
+.modal-box { background:var(--modal-bg); border:2px solid var(--accent); border-radius:12px; padding:26px 22px; max-width:360px; width:100%; max-height:82vh; overflow-y:auto; }
 .modal-box h2 { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; color:var(--accent); font-size:1.7rem; margin-bottom:12px; }
-.modal-box ol { padding-left:16px; line-height:1.7; font-size:0.92rem; color:#d8c090; }
+.modal-box ol { padding-left:16px; line-height:1.7; font-size:0.92rem; color:var(--text); }
 .modal-box li { margin-bottom:7px; }
-.modal-box p { color:#d8c090; font-size:1rem; margin-bottom:16px; line-height:1.6; }
+.modal-box p { color:var(--text); font-size:1rem; margin-bottom:16px; line-height:1.6; }
 .modal-box .btn-group { display:flex; gap:10px; flex-wrap:wrap; }
 .modal-box .close-btn { margin-top:16px; width:100%; background:var(--accent); color:#1a1208; font-family:'Bebas Neue',sans-serif; letter-spacing:0.1em; font-size:1rem; padding:10px; border:none; border-radius:6px; cursor:pointer; }
 .modal-btn { flex:1; padding:10px; border:none; border-radius:8px; cursor:pointer; font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:0.1em; }
@@ -133,7 +161,7 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
 .modal-btn.cancel { background:transparent; color:var(--accent); border:1.5px solid var(--accent); }
 .winner-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:200; align-items:center; justify-content:center; }
 .winner-overlay.open { display:flex; }
-.winner-box { background:#231a08; border:3px solid var(--accent); border-radius:16px; padding:36px 28px; text-align:center; animation:popIn 0.4s cubic-bezier(0.175,0.885,0.32,1.275); }
+.winner-box { background:var(--modal-bg); border:3px solid var(--accent); border-radius:16px; padding:36px 28px; text-align:center; animation:popIn 0.4s cubic-bezier(0.175,0.885,0.32,1.275); }
 @keyframes popIn { from{transform:scale(0.6);opacity:0} to{transform:scale(1);opacity:1} }
 .winner-box h2 { font-family:'Bebas Neue',sans-serif; font-size:2.8rem; letter-spacing:0.15em; color:var(--accent); }
 .winner-box p { font-size:1.1rem; color:#c8a060; margin:8px 0 20px; font-style:italic; }
@@ -141,7 +169,7 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
 .winner-box button.outline2 { background:transparent; color:var(--accent); border:2px solid var(--accent); }
 #aiThinking { display:none; font-style:italic; color:#a07840; font-size:0.9rem; margin-top:6px; animation:pulse 1s infinite alternate; }
 @keyframes pulse { from{opacity:0.4} to{opacity:1} }
-.footer { margin-top:16px; text-align:center; font-family:'Crimson Pro',serif; font-style:italic; font-size:0.8rem; color:#5a3a10; letter-spacing:0.08em; }
+.footer { margin-top:16px; text-align:center; font-family:'Crimson Pro',serif; font-style:italic; font-size:0.8rem; color:var(--footer-color); letter-spacing:0.08em; }
 
 /* USERNAME SCREEN */
 #usernameScreen { display:flex; flex-direction:column; align-items:center; gap:14px; margin-top:24px; width:100%; max-width:320px; }
@@ -149,7 +177,7 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
 .username-sub { font-style:italic; color:#a07840; font-size:0.9rem; text-align:center; }
 .username-input {
   width:100%; padding:14px; border-radius:10px; border:2px solid var(--accent);
-  background:#231a08; color:#e8d8b0; font-family:'Crimson Pro',serif;
+  background:var(--input-bg); color:var(--input-color); font-family:'Crimson Pro',serif;
   font-size:1.2rem; text-align:center; outline:none;
 }
 .username-input:focus { border-color:var(--accent2); box-shadow:0 0 12px rgba(232,160,32,0.3); }
@@ -203,11 +231,14 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
 </head>
 <body>
 
+<!-- Theme toggle button (fixed top left) -->
+<button id="themeBtn" onclick="toggleTheme()" title="Toggle Theme">🌙</button>
+
 <!-- Sound button (fixed top right) -->
 <button id="soundBtn" onclick="toggleSound()" title="Toggle Sound">🔊</button>
 
 <!-- USERNAME SCREEN -->
-<div id="usernameScreen" style="display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:24px;width:100%;max-width:320px;">
+<div id="usernameScreen" style="display:none;flex-direction:column;align-items:center;gap:14px;margin-top:24px;width:100%;max-width:320px;">
   <div class="username-title">ROCKS</div>
   <p class="subtitle" style="margin-bottom:0">An original strategy game</p>
   <div class="username-sub">Enter your name to begin</div>
@@ -231,8 +262,8 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
       <button class="diff-btn legend" id="dLegend" onclick="selectDiff('legend')">👑 Legend</button>
     </div>
   </div>
-  <button class="mode-btn vs-ai" onclick="startGame('ai')"><span class="mode-icon">🤖</span> Play vs AI</button>
-  <button class="mode-btn vs-2p" onclick="startGame('2p')"><span class="mode-icon">👥</span> 2 Players Offline</button>
+  <button class="mode-btn vs-ai" onclick="showColorScreen('ai')"><span class="mode-icon">🤖</span> Play vs AI</button>
+  <button class="mode-btn vs-2p" onclick="showColorScreen('2p')"><span class="mode-icon">👥</span> 2 Players Offline</button>
   <button class="mode-btn vs-online" onclick="showOnlineScreen()"><span class="mode-icon">🌐</span> Online Multiplayer</button>
   <button class="lb-btn" onclick="showLeaderboard()">🏆 View Leaderboard</button>
 </div>
@@ -249,6 +280,15 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
 <!-- ONLINE LOBBY -->
 <div id="onlineScreen">
   <div class="online-title">🌐 Online Multiplayer</div>
+  <!-- FIX 2 — Rejoin banner (shown on page load if saved session exists) -->
+  <div id="rejoinBanner" style="display:none;width:100%;background:#0a1a2a;border:2px solid #3060a0;border-radius:10px;padding:14px 16px;text-align:center;">
+    <div style="font-size:0.8rem;color:#6090b0;margin-bottom:4px;">You were in a game!</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:0.25em;color:#60c0ff;" id="rejoinCodeDisplay">----</div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button onclick="doRejoinSaved()" style="flex:1;padding:10px;border:none;border-radius:8px;background:#3060a0;color:#fff;font-family:'Bebas Neue',sans-serif;font-size:1rem;cursor:pointer;">↩ Rejoin Game</button>
+      <button onclick="dismissRejoin()" style="padding:10px 14px;border:none;border-radius:8px;background:#1a2a3a;color:#6090b0;font-family:'Bebas Neue',sans-serif;font-size:1rem;cursor:pointer;">✕</button>
+    </div>
+  </div>
   <button class="online-btn create" onclick="createOnlineRoom()">➕ Create Room</button>
   <div style="color:#4a6080;font-size:0.85rem;">— or join with a code —</div>
   <div class="join-row">
@@ -262,6 +302,25 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
     <div class="sub">Waiting for opponent...</div>
   </div>
   <div class="online-back" onclick="backToMenu()">← Back to Menu</div>
+</div>
+
+<!-- COLOR SELECTION SCREEN -->
+<div id="colorScreen" style="display:none;flex-direction:column;align-items:center;gap:16px;margin-top:20px;width:100%;max-width:320px;">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.15em;color:var(--accent);text-align:center;">Choose Your Side</div>
+  <div style="font-style:italic;font-size:0.88rem;color:var(--text2);text-align:center;margin-bottom:4px;">Which color do you want to play?</div>
+  <div style="display:flex;gap:12px;width:100%;">
+    <button onclick="selectColor('W')" style="flex:1;padding:20px 10px;border:2px solid #c8b090;border-radius:14px;background:rgba(245,240,232,0.08);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.1em;color:#f5f0e8;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.background='rgba(245,240,232,0.18)';this.style.borderColor='#f5f0e8'" onmouseout="this.style.background='rgba(245,240,232,0.08)';this.style.borderColor='#c8b090'">
+      <span style="width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#e8dcc8 60%,#b89868);border:2px solid #a08060;display:inline-block;box-shadow:0 3px 10px rgba(0,0,0,0.4);"></span>
+      <span>⚪ WHITE</span>
+      <small style="font-size:0.65rem;opacity:0.6;letter-spacing:0.05em;">MOVES FIRST</small>
+    </button>
+    <button onclick="selectColor('B')" style="flex:1;padding:20px 10px;border:2px solid #5a4830;border-radius:14px;background:rgba(26,18,8,0.3);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.1em;color:#c8b090;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:10px;transition:all 0.2s;white-space:nowrap;" onmouseover="this.style.background='rgba(26,18,8,0.55)';this.style.borderColor='#a08060'" onmouseout="this.style.background='rgba(26,18,8,0.3)';this.style.borderColor='#5a4830'">
+      <span style="width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#5a4830,#2a1e10 60%,#080604);border:2px solid #7a5a28;display:inline-block;box-shadow:0 3px 10px rgba(0,0,0,0.6);"></span>
+      <span>⚫ BLACK</span>
+      <small style="font-size:0.65rem;opacity:0.6;letter-spacing:0.05em;">MOVES SECOND</small>
+    </button>
+  </div>
+  <button onclick="showScreen('modeScreen')" style="background:transparent;border:none;color:var(--text2);font-family:'Crimson Pro',serif;font-style:italic;font-size:0.9rem;cursor:pointer;text-decoration:underline;margin-top:4px;">← Back to Menu</button>
 </div>
 
 <!-- GAME SCREEN -->
@@ -348,7 +407,32 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
 <div class="footer">Powered by <span style="color:#a07840;font-weight:600;">JK Technology</span></div>
 
 <script>
-// ===== USERNAME & LEADERBOARD =====
+// ===== THEME =====
+let isDark = localStorage.getItem('rocks_theme') !== 'light';
+
+function applyTheme() {
+  if (isDark) {
+    document.body.classList.remove('light');
+    document.getElementById('themeBtn').textContent = '🌙';
+  } else {
+    document.body.classList.add('light');
+    document.getElementById('themeBtn').textContent = '☀️';
+  }
+}
+
+function toggleTheme() {
+  isDark = !isDark;
+  localStorage.setItem('rocks_theme', isDark ? 'dark' : 'light');
+  applyTheme();
+  draw(); // redraw board with new colors
+}
+
+function getBoardColor() { return isDark ? '#c0983c' : '#d4aa50'; }
+function getLineColor()  { return isDark ? '#5a3a10' : '#8a5a10'; }
+function getWallColor()  { return isDark ? '#1a0800' : '#5a3000'; }
+function getOutlineColor(){ return isDark ? '#d4820a' : '#e8a020'; }
+
+
 let currentUsername = localStorage.getItem('rocks_username') || '';
 
 function submitUsername() {
@@ -510,19 +594,21 @@ function stopBgMusic() {
 
 // On page load — show username screen or mode screen
 window.addEventListener('load', ()=>{
+  applyTheme();
   if (currentUsername) {
+    // Name already saved — go straight to menu
     updateUsernameDisplay();
     document.getElementById('mainTitle').style.display = 'block';
     document.getElementById('mainSubtitle').style.display = 'block';
+    document.getElementById('usernameScreen').style.display = 'none';
     showScreen('modeScreen');
   } else {
-    document.getElementById('usernameScreen').style.display = 'flex';
-    // Hide title since username screen has its own
+    // No name yet — show username screen
     document.getElementById('mainTitle').style.display = 'none';
     document.getElementById('mainSubtitle').style.display = 'none';
+    document.getElementById('modeScreen').style.display = 'none';
+    document.getElementById('usernameScreen').style.display = 'flex';
   }
-  // Hide modeScreen initially if no username
-  if (!currentUsername) document.getElementById('modeScreen').style.display = 'none';
 });
 
 document.getElementById('usernameInput').addEventListener('keydown', e=>{
@@ -530,9 +616,8 @@ document.getElementById('usernameInput').addEventListener('keydown', e=>{
 });
 
 
-const GRID = 5, PAD = 18, R = 15;
-// Use a safe fixed cell size that fits all phones
-const CELL = 62;
+const GRID = 5, PAD = 18, R = 16;
+const CELL = 70;
 const CW = PAD*2 + CELL*(GRID-1);
 
 const canvas = document.getElementById('board');
@@ -562,7 +647,7 @@ function selectDiff(d) {
 
 // ===== NAVIGATION =====
 function showScreen(id) {
-  ['modeScreen','onlineScreen','gameScreen'].forEach(s => {
+  ['modeScreen','onlineScreen','gameScreen','colorScreen'].forEach(s => {
     document.getElementById(s).style.display = 'none';
   });
   document.getElementById(id).style.display = 'flex';
@@ -573,6 +658,7 @@ function goToMenu() {
   document.getElementById('leaveModal').classList.remove('open');
   if (socket) { socket.disconnect(); socket = null; }
   onlineRoomId = null; myColor = null; gameMode = '2p';
+  localStorage.removeItem('rocks_rejoin');
   stopBgMusic();
   showScreen('modeScreen');
 }
@@ -580,12 +666,27 @@ function goToMenu() {
 function backToMenu() {
   if (socket) { socket.disconnect(); socket = null; }
   onlineRoomId = null; myColor = null;
+  localStorage.removeItem('rocks_rejoin');
   showScreen('modeScreen');
 }
 
 function confirmLeave() {
   document.getElementById('leaveModal').classList.remove('open');
   goToMenu();
+}
+
+// ===== COLOR SELECTION =====
+let pendingMode = '2p';
+let humanColor = 'B'; // which color human plays in AI mode; in 2p, color of player 1
+
+function showColorScreen(mode) {
+  pendingMode = mode;
+  showScreen('colorScreen');
+}
+
+function selectColor(color) {
+  humanColor = color;
+  startGame(pendingMode);
 }
 
 function startGame(mode) {
@@ -620,21 +721,31 @@ function initBoard() {
   lastMove=null;
   window._retaliationMoves = [];
   hideChainBar(); updateUI(); draw();
-  if (gameMode==='ai') setTimeout(aiMove, 700);
+
+  // In AI mode: if human chose White, AI plays Black and human goes first
+  // If human chose Black, AI plays White and AI goes first (existing behavior)
+  if (gameMode==='ai') {
+    if (humanColor==='W') {
+      // Human is White — do nothing, human moves first
+    } else {
+      // Human is Black — AI is White, AI goes first
+      setTimeout(aiMove, 700);
+    }
+  }
 }
 
 // ===== DRAW =====
 function draw() {
   ctx.clearRect(0,0,CW,CW);
-  ctx.fillStyle='#c0983c'; ctx.fillRect(0,0,CW,CW);
-  ctx.strokeStyle='#5a3a10'; ctx.lineWidth=1.5;
+  ctx.fillStyle=getBoardColor(); ctx.fillRect(0,0,CW,CW);
+  ctx.strokeStyle=getLineColor(); ctx.lineWidth=1.5;
   for (let i=0;i<GRID;i++) {
     ctx.beginPath(); ctx.moveTo(nodeX(i),nodeY(0)); ctx.lineTo(nodeX(i),nodeY(GRID-1)); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(nodeX(0),nodeY(i)); ctx.lineTo(nodeX(GRID-1),nodeY(i)); ctx.stroke();
   }
   const wx=nodeX(0),wy=nodeY(0),ww=nodeX(GRID-1)-wx,wh=nodeY(GRID-1)-wy;
-  ctx.strokeStyle='#1a0800'; ctx.lineWidth=5; ctx.strokeRect(wx,wy,ww,wh);
-  ctx.strokeStyle='#d4820a'; ctx.lineWidth=2; ctx.strokeRect(wx-3,wy-3,ww+6,wh+6);
+  ctx.strokeStyle=getWallColor(); ctx.lineWidth=5; ctx.strokeRect(wx,wy,ww,wh);
+  ctx.strokeStyle=getOutlineColor(); ctx.lineWidth=2; ctx.strokeRect(wx-3,wy-3,ww+6,wh+6);
 
   // Last move highlight — FROM (faded) and TO (bright)
   if (lastMove) {
@@ -688,7 +799,15 @@ function drawRock(x,y,v,isSel,isChain) {
 // ===== MOVE LOGIC =====
 function isOwn(v) {
   if (!v) return false;
+  if (gameMode==='ai') {
+    // Human controls their chosen color
+    return humanColor==='W'?(v==='W'||v==='WD'):(v==='B'||v==='BD');
+  }
   return currentPlayer==='W'?(v==='W'||v==='WD'):(v==='B'||v==='BD');
+}
+function isAiTurn() {
+  if (gameMode!=='ai') return false;
+  return currentPlayer !== humanColor;
 }
 
 function getEatMoves(r,c) {
@@ -782,16 +901,18 @@ function checkWin() {
   const wc=countRocks('W'),bc=countRocks('B');
   if (wc<=1||bc<=1) {
     gameOver=true;
-    const winner=wc>1?'WHITE':'BLACK';
-    document.getElementById('winnerText').textContent=winner+' WINS!';
+    const winnerColor = wc>1?'W':'B';
+    const winnerLabel = wc>1?'WHITE':'BLACK';
+    document.getElementById('winnerText').textContent=winnerLabel+' WINS!';
     document.getElementById('winnerSub').textContent='Opponent left with only 1 rock';
     document.getElementById('winnerOverlay').classList.add('open');
-    // Sound & score
-    const iWon = (gameMode==='ai' && winner==='BLACK') ||
-                 (gameMode==='2p' && winner==='BLACK') ||
-                 (gameMode==='online' && winner===myColor);
+    // Did the human win?
+    let iWon;
+    if (gameMode==='ai')     iWon = winnerColor===humanColor;
+    else if (gameMode==='online') iWon = winnerColor===myColor;
+    else iWon = false; // 2p — no "iWon" concept, just show winner
     setTimeout(()=>{ iWon ? sfxWin() : sfxLose(); }, 200);
-    if (gameMode !== 'online') recordResult(winner==='BLACK'); // track for human player (Black in AI mode)
+    if (gameMode==='ai') recordResult(iWon);
     stopBgMusic();
     draw();
   }
@@ -804,8 +925,7 @@ function endTurn() {
   if (!gameOver) {
     currentPlayer=currentPlayer==='W'?'B':'W';
     updateUI(); draw();
-    if (gameMode==='ai'&&currentPlayer==='W') {
-      document.getElementById('aiThinking').style.display='block';
+    if (gameMode==='ai' && currentPlayer!==humanColor) {
       setTimeout(aiMove, difficulty==='easy'?600:difficulty==='hard'?900:1200);
     }
   }
@@ -837,7 +957,8 @@ function doPlayerMove(mv) {
       forcedRetaliation=true; retaliationTarget={r:landR,c:landC};
       window._retaliationMoves=retMoves;
       currentPlayer='W';
-      if (gameMode==='ai') {
+      // If AI controls White (human chose Black), AI retaliates automatically
+      if (gameMode==='ai' && humanColor==='B') {
         updateUI(); draw();
         setTimeout(()=>{
           const rm=retMoves[Math.floor(Math.random()*retMoves.length)];
@@ -846,6 +967,7 @@ function doPlayerMove(mv) {
           currentPlayer='B'; updateUI(); draw();
         },700);
       } else {
+        // Human retaliates (human is White, or 2P mode)
         updateUI();
         document.getElementById('message').textContent='⚔️ White must eat back! Select a White rock.';
         draw();
@@ -877,8 +999,8 @@ canvas.addEventListener('click', e => {
 
   // Online: handled separately
   if (gameMode==='online') { handleOnlineClick(e); return; }
-  // AI turn: block
-  if (gameMode==='ai'&&currentPlayer==='W') return;
+  // AI turn: block input
+  if (isAiTurn()) return;
 
   const rect=canvas.getBoundingClientRect();
   const mx=(e.clientX-rect.left)*(CW/rect.width), my=(e.clientY-rect.top)*(CW/rect.height);
@@ -963,10 +1085,20 @@ function scoreBoard() {
 
 function aiMove() {
   if (gameOver) return;
+  document.getElementById('aiThinking').style.display='block';
+
+  // Defer the actual calculation so browser renders "AI is thinking..." first
+  setTimeout(function() {
+  if (gameOver) { document.getElementById('aiThinking').style.display='none'; return; }
   document.getElementById('aiThinking').style.display='none';
+
+  // AI plays whichever color the human didn't choose
+  const aiColor = humanColor==='W' ? 'B' : 'W';
+  const oppColor = humanColor;
   let allMoves=[];
 
-  if (isFirstMove) {
+  if (isFirstMove && aiColor==='W') {
+    // First move restriction only applies to White
     for (let r=0;r<GRID;r++) for (let c=0;c<GRID;c++) {
       const v=board[r][c]; if (v!=='W'&&v!=='WD') continue;
       const nr=r+1; if (nr>=GRID) continue;
@@ -976,62 +1108,82 @@ function aiMove() {
     allMoves=front.length>0?front:allMoves;
   } else {
     for (let r=0;r<GRID;r++) for (let c=0;c<GRID;c++) {
-      const v=board[r][c]; if (v!=='W'&&v!=='WD') continue;
-      getAllMoves(r,c,false).forEach(m=>allMoves.push({fr:r,fc:c,mv:m}));
+      const v=board[r][c];
+      const mine=aiColor==='W'?(v==='W'||v==='WD'):(v==='B'||v==='BD');
+      if (mine) getAllMoves(r,c,false).forEach(m=>allMoves.push({fr:r,fc:c,mv:m}));
     }
   }
   if (!allMoves.length){endTurn();return;}
 
-  // Filter safe moves (don't block black)
+  // Filter safe moves (don't block opponent)
   const safeMoves=allMoves.filter(x=>{
     const snap=board.map(row=>[...row]);
     applyMove(x.fr,x.fc,x.mv);
-    const ok=playerHasAnyMoves('B');
+    const ok=playerHasAnyMoves(oppColor);
     board.forEach((row,i)=>row.forEach((_,j)=>row[j]=snap[i][j]));
     return ok;
   });
   const pool=safeMoves.length>0?safeMoves:allMoves;
 
+  // TIME-LIMITED AI — max 800ms regardless of difficulty
+  const aiDeadline = Date.now() + 800;
   let chosen;
+
   if (difficulty==='easy') {
+    // Random with slight eat preference — instant
     const eats=pool.filter(x=>x.mv.type==='eat');
-    chosen=eats.length>0&&Math.random()>0.4?eats[Math.floor(Math.random()*eats.length)]:pool[Math.floor(Math.random()*pool.length)];
+    chosen=eats.length>0&&Math.random()>0.4
+      ? eats[Math.floor(Math.random()*eats.length)]
+      : pool[Math.floor(Math.random()*pool.length)];
+
   } else if (difficulty==='hard') {
+    // Pick best immediate score — check time each iteration
     const eats=pool.filter(x=>x.mv.type==='eat');
     const evalPool=eats.length>0?eats:pool;
-    chosen=evalPool.reduce((best,x)=>{
+    let best={s:-999};
+    for (const x of evalPool) {
+      if (Date.now()>aiDeadline) break;
       const snap=board.map(row=>[...row]);
       applyMove(x.fr,x.fc,x.mv); const s=scoreBoard();
       board.forEach((row,i)=>row.forEach((_,j)=>row[j]=snap[i][j]));
-      return s>best.s?{...x,s}:best;
-    },{s:-999});
+      if (s>best.s) best={...x,s};
+    }
+    chosen=best.fr!==undefined?best:pool[0];
+
   } else {
+    // Legend: 2-ply lookahead with strict time limit
     const eats=pool.filter(x=>x.mv.type==='eat');
-    const evalPool=eats.length>0?eats:pool;
-    chosen=evalPool.reduce((best,x)=>{
+    const evalPool=(eats.length>0?eats:pool).slice(0,12); // max 12 candidates
+    let best={s:-999};
+    for (const x of evalPool) {
+      if (Date.now()>aiDeadline) break;
       const snap=board.map(row=>[...row]);
       applyMove(x.fr,x.fc,x.mv); let s=scoreBoard();
+      // One-level opponent reply
       let oppMoves=[];
       for (let r=0;r<GRID;r++) for (let c=0;c<GRID;c++) {
         const v=board[r][c]; if (v!=='B'&&v!=='BD') continue;
         getAllMoves(r,c,false).forEach(m=>oppMoves.push({fr:r,fc:c,mv:m}));
       }
-      if (oppMoves.length>0) {
-        const worst=oppMoves.reduce((w,o)=>{
+      if (oppMoves.length>0 && Date.now()<aiDeadline) {
+        let worstS=999;
+        for (const o of oppMoves.slice(0,6)) {
+          if (Date.now()>aiDeadline) break;
           const s2=board.map(row=>[...row]);
           applyMove(o.fr,o.fc,o.mv); const os=scoreBoard();
           board.forEach((row,i)=>row.forEach((_,j)=>row[j]=s2[i][j]));
-          return os<w.s?{...o,s:os}:w;
-        },{s:999});
-        s=(s+worst.s)/2;
+          if (os<worstS) worstS=os;
+        }
+        s=(s+worstS)/2;
       }
       board.forEach((row,i)=>row.forEach((_,j)=>row[j]=snap[i][j]));
-      return s>best.s?{...x,s}:best;
-    },{s:-999});
+      if (s>best.s) best={...x,s};
+    }
+    chosen=best.fr!==undefined?best:pool[0];
   }
   if (!chosen||chosen.fr===undefined) chosen=pool[0];
 
-  room.lastMove = { fromR:chosen.fr, fromC:chosen.fc, toR:chosen.mv.r, toC:chosen.mv.c, player:'W' };
+  lastMove = { fromR:chosen.fr, fromC:chosen.fc, toR:chosen.mv.r, toC:chosen.mv.c, player: aiColor };
 
   applyMove(chosen.fr,chosen.fc,chosen.mv);
   if (isFirstMove) isFirstMove=false;
@@ -1045,12 +1197,12 @@ function aiMove() {
       const ce=chains[Math.floor(Math.random()*chains.length)];
       applyMove(lr,lc,ce); lr=ce.r; lc=ce.c; chains=getEatMoves(lr,lc);
     }
-    // Update lastMove to final landing position after chain
     lastMove.toR=lr; lastMove.toC=lc;
   }
 
   checkWin();
-  if (!gameOver){currentPlayer='B';updateUI();draw();}
+  if (!gameOver){currentPlayer=humanColor; updateUI(); draw();}
+  }, 0); // end setTimeout — lets browser paint "AI is thinking..." before calculation
 }
 
 // ===== UI =====
@@ -1065,8 +1217,9 @@ function updateUI() {
   const badge=document.getElementById('diffBadge');
   if (gameMode==='ai') {
     badge.style.display='inline-block'; badge.className='diff-badge '+difficulty; badge.textContent=difficulty.toUpperCase();
-    document.querySelector('#p1info .name').innerHTML='<span class="rock-icon white"></span> WHITE (AI)';
-    document.querySelector('#p2info .name').innerHTML='BLACK (YOU) <span class="rock-icon black"></span>';
+    const aiColor = humanColor==='W'?'B':'W';
+    document.querySelector('#p1info .name').innerHTML='<span class="rock-icon white"></span> WHITE'+(humanColor==='W'?' (YOU)':' (AI)');
+    document.querySelector('#p2info .name').innerHTML=(humanColor==='B'?'BLACK (YOU)':'BLACK (AI)')+' <span class="rock-icon black"></span>';
   } else if (gameMode==='online') {
     badge.style.display='inline-block'; badge.className='diff-badge online'; badge.textContent='🌐 ONLINE';
     document.querySelector('#p1info .name').innerHTML='<span class="rock-icon white"></span> WHITE'+(myColor==='W'?' (YOU)':'');
@@ -1081,7 +1234,8 @@ function updateUI() {
     const restrict=isFirstMove&&currentPlayer==='W';
     const base = restrict?' (must move downward)':'';
     if (gameMode==='ai') {
-      document.getElementById('message').textContent=currentPlayer==='W'?'AI is thinking...':'Your turn (Black) — select a rock'+base;
+      const aiTurn = currentPlayer!==humanColor;
+      document.getElementById('message').textContent=aiTurn?'AI is thinking...':'Your turn — select a rock'+base;
     } else if (gameMode==='online') {
       document.getElementById('message').textContent=currentPlayer===myColor?'Your turn — select a rock'+base:"⏳ Waiting for opponent's move...";
     } else {
@@ -1099,8 +1253,39 @@ function showOnlineScreen() {
   document.getElementById('onlineStatus').textContent='';
   document.getElementById('roomCodeBox').style.display='none';
   document.getElementById('joinCodeInput').value='';
+  // FIX 2 — Show rejoin banner if a saved session exists
+  const saved = getRejoinData();
+  if (saved) {
+    document.getElementById('rejoinCodeDisplay').textContent = saved.roomId;
+    document.getElementById('rejoinBanner').style.display = 'block';
+  } else {
+    document.getElementById('rejoinBanner').style.display = 'none';
+  }
   showScreen('onlineScreen');
   connectSocket();
+}
+
+// FIX 2 — Rejoin banner helpers
+function getRejoinData() {
+  try { return JSON.parse(localStorage.getItem('rocks_rejoin') || 'null'); } catch(e) { return null; }
+}
+function doRejoinSaved() {
+  const saved = getRejoinData();
+  if (!saved) return;
+  onlineRoomId = saved.roomId;
+  myColor = saved.color;
+  document.getElementById('rejoinBanner').style.display = 'none';
+  setOnlineSt('Rejoining...', '');
+  if (!socket || !socket.connected) {
+    connectSocket();
+    setTimeout(tryRejoin, 1200);
+  } else {
+    tryRejoin();
+  }
+}
+function dismissRejoin() {
+  localStorage.removeItem('rocks_rejoin');
+  document.getElementById('rejoinBanner').style.display = 'none';
 }
 
 function setOnlineSt(msg,cls) {
@@ -1119,6 +1304,7 @@ function connectSocket() {
 
   socket.on('roomCreated', ({roomId,color})=>{
     onlineRoomId=roomId; myColor=color;
+    localStorage.setItem('rocks_rejoin', JSON.stringify({roomId, color}));
     document.getElementById('roomCodeText').textContent=roomId;
     document.getElementById('roomCodeBox').style.display='block';
     setOnlineSt('','');
@@ -1126,6 +1312,7 @@ function connectSocket() {
 
   socket.on('roomJoined', ({roomId,color})=>{
     onlineRoomId=roomId; myColor=color;
+    localStorage.setItem('rocks_rejoin', JSON.stringify({roomId, color}));
     setOnlineSt('Joined! Starting...','ok');
   });
 
@@ -1145,7 +1332,13 @@ function connectSocket() {
     retaliationTarget=state.retaliationTarget; chainMode=state.chainMode;
     chainRock=state.chainRock||null; gameOver=state.gameOver;
     if (currentPlayer!==myColor){selected=null;validMoves=[];}
-    if (chainMode&&currentPlayer===myColor) showChainBar(); else hideChainBar();
+if (chainMode&&currentPlayer===myColor) {
+  if (chainRock) {
+    validMoves=getEatMoves(chainRock.r,chainRock.c);
+    selected={r:chainRock.r,c:chainRock.c};
+  }
+  showChainBar();
+} else hideChainBar();
     updateUI(); draw();
   });
 
@@ -1221,6 +1414,17 @@ function tryRejoin() {
   socket.emit('rejoinRoom', { roomId: onlineRoomId, color: myColor });
 }
 
+// FIX 1 — Reconnect when returning from another app (mobile backgrounding)
+document.addEventListener('visibilitychange', ()=>{
+  if (document.visibilityState === 'visible' && gameMode === 'online' && onlineRoomId && myColor) {
+    if (!socket || !socket.connected) {
+      document.getElementById('message').textContent = '⚠️ Reconnecting...';
+      if (!socket) connectSocket();
+      setTimeout(tryRejoin, 1500);
+    }
+  }
+});
+
 function createOnlineRoom() {
   if (!socket||!socket.connected){connectSocket();setTimeout(createOnlineRoom,900);return;}
   setOnlineSt('Creating room...','');
@@ -1287,4 +1491,4 @@ function handleOnlineClick(e) {
 }
 </script>
 </body>
-</html>
+      </html>
