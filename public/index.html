@@ -1288,7 +1288,13 @@ function connectSocket() {
     retaliationTarget=state.retaliationTarget; chainMode=state.chainMode;
     chainRock=state.chainRock||null; gameOver=state.gameOver;
     if (currentPlayer!==myColor){selected=null;validMoves=[];}
-    if (chainMode&&currentPlayer===myColor) showChainBar(); else hideChainBar();
+if (chainMode&&currentPlayer===myColor) {
+  if (chainRock) {
+    validMoves=getEatMoves(chainRock.r,chainRock.c);
+    selected={r:chainRock.r,c:chainRock.c};
+  }
+  showChainBar();
+} else hideChainBar();
     updateUI(); draw();
   });
 
