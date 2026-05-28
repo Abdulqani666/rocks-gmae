@@ -356,7 +356,7 @@ io.on('connection', (socket) => {
 
   socket.on('rejoinRoom', ({ roomId, color }) => {
     const room = rooms.get(roomId);
-    if (!room) { socket.emit('joinError', 'Room no longer exists.'); return; }
+    if (!room) { socket.emit('roomExpired', { roomId }); return; }
 
     // Restore player control
     room.players[color] = socket.id;
