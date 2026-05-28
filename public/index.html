@@ -949,9 +949,11 @@ function updateUndoBtn() {
   if (bSpan) bSpan.textContent = bLeft > 0 ? `(${bLeft})` : '(0)';
 
   // White can undo only when it's Black's turn (White just moved)
-  const wCanUndo = wLeft > 0 && undoStack.length > 0 && !gameOver && currentPlayer === 'B';
+  // For online, server holds the stack so don't check undoStack.length
+  const hasStack = gameMode === 'online' ? true : undoStack.length > 0;
+  const wCanUndo = wLeft > 0 && hasStack && !gameOver && currentPlayer === 'B';
   // Black can undo only when it's White's turn (Black just moved)
-  const bCanUndo = bLeft > 0 && undoStack.length > 0 && !gameOver && currentPlayer === 'W';
+  const bCanUndo = bLeft > 0 && hasStack && !gameOver && currentPlayer === 'W';
 
   if (gameMode === 'online') {
     // Online: only your own button is ever interactive
