@@ -1718,7 +1718,8 @@ function connectSocket() {
       if (chainRock) { validMoves=getEatMoves(chainRock.r,chainRock.c); selected={r:chainRock.r,c:chainRock.c}; }
       showChainBar();
     } else hideChainBar();
-    if (state.undoCount) { undoCount=state.undoCount; updateUndoBtn(); }
+    if (state.undoCount) undoCount = state.undoCount;
+    updateUndoBtn();
     if (state.spectatorCount !== undefined) {
       const bar=document.getElementById('spectatorBar'), cnt=document.getElementById('spectatorCount');
       if (bar&&cnt) { cnt.textContent=state.spectatorCount; bar.style.display=state.spectatorCount>0?'block':'none'; }
@@ -1782,7 +1783,6 @@ function connectSocket() {
     document.getElementById('rematchModal').classList.remove('open');
     document.getElementById('winnerOverlay').classList.remove('open');
     undoStack=[]; undoCount={W:3,B:3}; activeAnims=[];
-    updateUndoBtn();
   });
 
   // ---- UNDO ----
@@ -1796,8 +1796,7 @@ function connectSocket() {
   });
   socket.on('undoApplied', ({by, remaining})=>{
     document.getElementById('undoModal').classList.remove('open');
-    undoCount = remaining; activeAnims = [];
-    updateUndoBtn();
+    activeAnims = [];
     document.getElementById('message').textContent = `↩ ${by==='W'?'White':'Black'} used an undo.`;
   });
   socket.on('undoError', msg=>{ document.getElementById('message').textContent='❌ '+msg; });
@@ -1946,4 +1945,3 @@ function installPWA() {
 </script>
 </body>
         </html>
-
