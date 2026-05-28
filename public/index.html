@@ -305,6 +305,40 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
 
 /* Score in winner box */
 .score-display { font-size:0.9rem; color:#a07840; margin-top:4px; }
+
+/* ===== MOVE HISTORY LOG ===== */
+#historyToggleBtn {
+  display:none;
+  background:#1a2a1a; border:1.5px solid #3a5a3a;
+  color:#80c080; border-radius:8px; padding:7px 14px;
+  font-family:'Bebas Neue',sans-serif; font-size:0.95rem;
+  letter-spacing:0.08em; cursor:pointer; margin-top:8px;
+}
+#historyToggleBtn:hover { background:#253525; }
+#historyPanel {
+  display:none;
+  background:#0d1a0d; border:1.5px solid #2a4a2a;
+  border-radius:10px; padding:12px 14px; margin-top:6px;
+  width:100%; max-width:420px; box-sizing:border-box;
+}
+#historyPanel .h-title {
+  font-family:'Bebas Neue',sans-serif; font-size:0.85rem;
+  letter-spacing:0.1em; color:#507050; margin-bottom:8px;
+}
+#historyList { list-style:none; margin:0; padding:0; }
+#historyList li {
+  font-size:0.82rem; color:#90b890; padding:3px 0;
+  border-bottom:1px solid #1a2a1a; display:flex; gap:6px; align-items:center;
+}
+#historyList li:last-child { border-bottom:none; }
+#historyList li .h-num { color:#405040; font-size:0.75rem; min-width:16px; }
+#historyList li .h-badge {
+  font-size:0.7rem; padding:1px 5px; border-radius:4px;
+  font-family:'Bebas Neue',sans-serif; letter-spacing:0.05em;
+}
+#historyList li .h-badge.W { background:#333; color:#eee; }
+#historyList li .h-badge.B { background:#111; color:#aaa; border:1px solid #333; }
+#historyList li .h-eat { color:#ff8040; font-size:0.75rem; }
 </style>
 </head>
 <body>
@@ -440,6 +474,11 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
     <button class="action danger" onclick="document.getElementById('leaveModal').classList.add('open')">Leave</button>
   </div>
   <div id="spectatorBar" style="display:none;text-align:center;font-size:0.8rem;color:var(--text2);margin-top:4px;">👁 <span id="spectatorCount">0</span> watching</div>
+  <button id="historyToggleBtn" onclick="toggleMoveHistory()">📜 Move Log</button>
+  <div id="historyPanel">
+    <div class="h-title">LAST 3 MOVES</div>
+    <ul id="historyList"><li style="color:#405040;font-size:0.8rem;">No moves yet</li></ul>
+  </div>
 </div>
 
 <!-- Rules Modal -->
@@ -759,6 +798,7 @@ let forcedRetaliation = false, retaliationTarget = null;
 let lastMove = null; // {fromR, fromC, toR, toC, player} — highlight last move
 // Online state
 let socket = null, onlineRoomId = null, myColor = null;
+let moveHistory = []; // [{player,from,to,type}] last 3 moves
 // Undo
 let undoStack = [];
 let undoCount = { W: 3, B: 3 };
@@ -1605,10 +1645,13 @@ function updateUI() {
     document.querySelector('#p2info .name').innerHTML=(humanColor==='B'?'BLACK (YOU)':'BLACK (AI)')+' <span class="rock-icon black"></span>';
   } else if (gameMode==='online') {
     badge.style.display='inline-block'; badge.className='diff-badge online'; badge.textContent='🌐 ONLINE';
+    document.getElementById('historyToggleBtn').style.display='inline-block';
     document.querySelector('#p1info .name').innerHTML='<span class="rock-icon white"></span> WHITE'+(myColor==='W'?' (YOU)':'');
     document.querySelector('#p2info .name').innerHTML='BLACK'+(myColor==='B'?' (YOU)':'')+'<span class="rock-icon black"></span>';
   } else {
     badge.style.display='none';
+    document.getElementById('historyToggleBtn').style.display='none';
+    document.getElementById('historyPanel').style.display='none';
     document.querySelector('#p1info .name').innerHTML='<span class="rock-icon white"></span> WHITE';
     document.querySelector('#p2info .name').innerHTML='BLACK <span class="rock-icon black"></span>';
   }
@@ -1701,6 +1744,12 @@ function connectSocket() {
 
   socket.on('joinError', msg=>setOnlineSt(msg,'err'));
 
+  socket.on('roomExpired', ()=>{
+    localStorage.removeItem('rocks_rejoin');
+    document.getElementById('rejoinBanner').style.display='none';
+    setOnlineSt('Room no longer exists — start a new game.','err');
+  });
+
   socket.on('opponentJoined', ()=>{
     setOnlineSt('Opponent joined!','ok');
     setTimeout(()=>{ showScreen('gameScreen'); gameMode='online'; updateUI(); draw(); startBgMusic(); },600);
@@ -1708,7 +1757,17 @@ function connectSocket() {
 
   socket.on('gameState', state=>{
     if (gameMode!=='online') { showScreen('gameScreen'); gameMode='online'; }
-    if (state.lastMove) lastMove = state.lastMove;
+    if (state.lastMove) {
+      // Only add if it's a new move (different from last entry)
+      const prev = moveHistory[moveHistory.length-1];
+      const lm = state.lastMove;
+      if (!prev || prev.fromR!==lm.fromR||prev.fromC!==lm.fromC||prev.toR!==lm.toR||prev.toC!==lm.toC) {
+        moveHistory.push(lm);
+        if (moveHistory.length > 3) moveHistory.shift();
+        renderMoveHistory();
+      }
+      lastMove = lm;
+    }
     board=state.board; currentPlayer=state.currentPlayer;
     isFirstMove=state.isFirstMove; forcedRetaliation=state.forcedRetaliation;
     retaliationTarget=state.retaliationTarget; chainMode=state.chainMode;
@@ -1783,6 +1842,7 @@ function connectSocket() {
     document.getElementById('rematchModal').classList.remove('open');
     document.getElementById('winnerOverlay').classList.remove('open');
     activeAnims = [];
+    moveHistory = []; renderMoveHistory();
     // undoCount will be reset by incoming gameState from server
   });
 
@@ -1934,6 +1994,40 @@ function installPWA() {
     if (btn) btn.style.display = 'none';
   });
 }
+
+// ===== MOVE HISTORY =====
+function colLabel(c) { return ['a','b','c','d','e'][c] || c; }
+function rowLabel(r) { return 5 - r; }
+
+function renderMoveHistory() {
+  const list = document.getElementById('historyList');
+  if (!list) return;
+  if (moveHistory.length === 0) {
+    list.innerHTML = '<li style="color:#405040;font-size:0.8rem;">No moves yet</li>';
+    return;
+  }
+  list.innerHTML = moveHistory.map((m, i) => {
+    const typeIcon = m.type === 'eat' ? '<span class="h-eat">✂ eat</span>' :
+                     m.type === 'jump' ? '<span class="h-eat" style="color:#80c0ff">↑ jump</span>' : '';
+    const from = colLabel(m.fromC) + rowLabel(m.fromR);
+    const to   = colLabel(m.toC)   + rowLabel(m.toR);
+    return `<li>
+      <span class="h-num">${moveHistory.length - moveHistory.length + i + 1}.</span>
+      <span class="h-badge ${m.player}">${m.player==='W'?'WHITE':'BLACK'}</span>
+      <span>${from} → ${to}</span>
+      ${typeIcon}
+    </li>`;
+  }).join('');
+}
+
+function toggleMoveHistory() {
+  const panel = document.getElementById('historyPanel');
+  const btn = document.getElementById('historyToggleBtn');
+  const open = panel.style.display === 'block';
+  panel.style.display = open ? 'none' : 'block';
+  btn.textContent = open ? '📜 Move Log' : '📜 Hide Log';
+}
+
 </script>
 </body>
         </html>
