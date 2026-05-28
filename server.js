@@ -146,7 +146,7 @@ function createRoom(hostSocketId) {
     gameOver: false,
     createdAt: Date.now(),
     undoStack: [],
-    undoCount: { W: 3, B: 3 },
+    undoCount: { W: 1, B: 1 },
     pendingUndo: null,
     rematchRequest: null
   };
@@ -344,35 +344,15 @@ io.on('connection', (socket) => {
     if (room.undoCount[color] <= 0) { socket.emit('undoError', 'No undos remaining.'); return; }
     if (room.undoStack.length === 0) { socket.emit('undoError', 'Nothing to undo.'); return; }
     if (room.pendingUndo) { socket.emit('undoError', 'Undo already pending.'); return; }
-    // Player can only undo their own last move — valid only when it's the opponent's turn
     const justMoved = color === 'W' ? room.currentPlayer === 'B' : room.currentPlayer === 'W';
-    if (!justMoved) { socket.emit('undoError', "You can only undo your own last move."); return; }
-    const opponent = color === 'W' ? 'B' : 'W';
-    room.pendingUndo = { requestedBy: color };
-    if (room.players[opponent]) {
-      io.to(room.players[opponent]).emit('undoRequested', { by: color, remaining: room.undoCount[color] - 1 });
-    } else {
-      applyUndo(room, color);
-    }
-  });
-
-  socket.on('acceptUndo', ({ roomId }) => {
-    const room = rooms.get(roomId);
-    if (!room || !room.pendingUndo) return;
-    const color = room.pendingUndo.requestedBy;
-    room.pendingUndo = null;
+    if (!justMoved) { socket.emit('undoError', 'You can only undo your own last move.'); return; }
+    // Apply instantly — no opponent approval needed
     applyUndo(room, color);
   });
 
-  socket.on('declineUndo', ({ roomId }) => {
-    const room = rooms.get(roomId);
-    if (!room) return;
-    const requester = room.pendingUndo ? room.pendingUndo.requestedBy : null;
-    room.pendingUndo = null;
-    if (requester && room.players[requester]) {
-      io.to(room.players[requester]).emit('undoDeclined');
-    }
-  });
+  // acceptUndo / declineUndo kept as no-ops for safety (old clients)
+  socket.on('acceptUndo', () => {});
+  socket.on('declineUndo', () => {});
 
   socket.on('rejoinRoom', ({ roomId, color }) => {
     const room = rooms.get(roomId);
@@ -536,7 +516,7 @@ function doRematch(room) {
   room.lastMove = null; room.gameOver = false;
   room.aiControlling = null;
   room.undoStack = [];
-  room.undoCount = { W: 3, B: 3 };
+  room.undoCount = { W: 1, B: 1 };
   room.pendingUndo = null;
   room.rematchRequest = null;
   room.createdAt = Date.now();
