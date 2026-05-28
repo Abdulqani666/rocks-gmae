@@ -129,11 +129,10 @@ function countRocks(board, p) {
 // ---- ROOM MANAGEMENT ----
 const rooms = new Map();
 
-function createRoom(hostSocketId, password) {
+function createRoom(hostSocketId) {
   const roomId = String(Math.floor(100000 + Math.random() * 900000));
   const room = {
     id: roomId,
-    password: password || null,
     players: { W: hostSocketId, B: null },
     spectators: [],
     board: initBoardState(),
@@ -201,16 +200,15 @@ setInterval(() => {
 io.on('connection', (socket) => {
   console.log('Connected:', socket.id);
 
-  socket.on('createRoom', ({ password } = {}) => {
-    const room = createRoom(socket.id, password);
+  socket.on('createRoom', () => {
+    const room = createRoom(socket.id);
     socket.join(room.id);
-    socket.emit('roomCreated', { roomId: room.id, color: 'W', hasPassword: !!password });
+    socket.emit('roomCreated', { roomId: room.id, color: 'W' });
   });
 
-  socket.on('joinRoom', ({ roomId, password }) => {
+  socket.on('joinRoom', ({ roomId }) => {
     const room = rooms.get(roomId.toUpperCase().trim());
     if (!room) { socket.emit('joinError', 'Room not found. Check the code and try again.'); return; }
-    if (room.password && room.password !== password) { socket.emit('joinError', 'Wrong password.'); return; }
     // If full, join as spectator
     if (room.players.B) {
       if (!room.spectators) room.spectators = [];
@@ -346,12 +344,14 @@ io.on('connection', (socket) => {
     if (room.undoCount[color] <= 0) { socket.emit('undoError', 'No undos remaining.'); return; }
     if (room.undoStack.length === 0) { socket.emit('undoError', 'Nothing to undo.'); return; }
     if (room.pendingUndo) { socket.emit('undoError', 'Undo already pending.'); return; }
+    // Player can only undo their own last move — valid only when it's the opponent's turn
+    const justMoved = color === 'W' ? room.currentPlayer === 'B' : room.currentPlayer === 'W';
+    if (!justMoved) { socket.emit('undoError', "You can only undo your own last move."); return; }
     const opponent = color === 'W' ? 'B' : 'W';
     room.pendingUndo = { requestedBy: color };
     if (room.players[opponent]) {
       io.to(room.players[opponent]).emit('undoRequested', { by: color, remaining: room.undoCount[color] - 1 });
     } else {
-      // No opponent (solo/AI) — auto accept
       applyUndo(room, color);
     }
   });
