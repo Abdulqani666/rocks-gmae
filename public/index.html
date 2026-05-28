@@ -465,18 +465,6 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
   </div>
 </div>
 
-<!-- Undo Request Modal -->
-<div class="modal" id="undoModal">
-  <div class="modal-box" style="text-align:center;">
-    <h2>Undo Request</h2>
-    <p style="color:var(--text2);font-style:italic;margin:8px 0 16px;" id="undoMsg">Opponent wants to undo their last move.</p>
-    <div class="btn-group">
-      <button class="modal-btn confirm" onclick="respondUndo(true)">✅ Allow</button>
-      <button class="modal-btn cancel" onclick="respondUndo(false)">❌ Deny</button>
-    </div>
-  </div>
-</div>
-
 <!-- Spectator Modal -->
 <div class="modal" id="spectatorModal">
   <div class="modal-box" style="text-align:center;">
@@ -1022,11 +1010,7 @@ function respondRematch(accept) {
   socket.emit(accept ? 'acceptRematch' : 'declineRematch', { roomId: onlineRoomId });
 }
 
-function respondUndo(accept) {
-  document.getElementById('undoModal').classList.remove('open');
-  if (!socket || !onlineRoomId) return;
-  socket.emit(accept ? 'acceptUndo' : 'declineUndo', { roomId: onlineRoomId });
-}
+// respondUndo removed — online undo is now instant
 
 // ===== DRAW =====
 function draw() {
@@ -1782,22 +1766,14 @@ function connectSocket() {
   socket.on('rematchStarted', ()=>{
     document.getElementById('rematchModal').classList.remove('open');
     document.getElementById('winnerOverlay').classList.remove('open');
-    undoStack=[]; undoCount={W:3,B:3}; activeAnims=[];
+    activeAnims = [];
+    // undoCount will be reset by incoming gameState from server
   });
 
   // ---- UNDO ----
-  socket.on('undoRequested', ({by, remaining})=>{
-    document.getElementById('undoMsg').textContent =
-      `Opponent wants to undo. They will have ${remaining} undo(s) left after this.`;
-    document.getElementById('undoModal').classList.add('open');
-  });
-  socket.on('undoDeclined', ()=>{
-    document.getElementById('message').textContent = '❌ Undo request declined.';
-  });
-  socket.on('undoApplied', ({by, remaining})=>{
-    document.getElementById('undoModal').classList.remove('open');
+  socket.on('undoApplied', ({by})=>{
     activeAnims = [];
-    document.getElementById('message').textContent = `↩ ${by==='W'?'White':'Black'} used an undo.`;
+    document.getElementById('message').textContent = `↩ ${by==='W'?'White':'Black'} used their undo.`;
   });
   socket.on('undoError', msg=>{ document.getElementById('message').textContent='❌ '+msg; });
 
