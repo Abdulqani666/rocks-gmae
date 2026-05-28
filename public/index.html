@@ -171,14 +171,25 @@ body.light .action.undo:disabled { background:rgba(0,0,0,0.06); color:#aaa; bord
 .room-code-box .lbl { font-size:0.8rem; color:#6090b0; margin-bottom:4px; }
 .room-code-box .code { font-family:'Bebas Neue',sans-serif; font-size:2.5rem; letter-spacing:0.3em; color:#60c0ff; }
 .room-code-box .sub { font-size:0.75rem; color:#4a7090; margin-top:4px; font-style:italic; }
-.join-row { width:100%; display:flex; gap:8px; }
+.join-row { width:100%; display:flex; flex-direction:column; align-items:center; gap:10px; }
 .join-row input {
-  flex:1; padding:12px; border-radius:8px; border:2px solid #3060a0;
+  width:100%; padding:14px; border-radius:10px; border:2px solid #3060a0;
   background:#0a1a2a; color:#60c0ff; font-family:'Bebas Neue',sans-serif;
-  font-size:1.3rem; letter-spacing:0.2em; text-align:center; text-transform:uppercase;
+  font-size:1.6rem; letter-spacing:0.3em; text-align:center; text-transform:uppercase;
+  transition:border-color 0.2s, box-shadow 0.2s;
 }
-.join-row input::placeholder { color:#2a4060; }
-.join-row button { padding:12px 16px; border-radius:8px; border:none; background:#3060a0; color:#fff; font-family:'Bebas Neue',sans-serif; font-size:1rem; cursor:pointer; }
+.join-row input:focus { outline:none; border-color:#60c0ff; box-shadow:0 0 14px rgba(96,192,255,0.25); }
+.join-row input::placeholder { color:#1e3a52; letter-spacing:0.2em; }
+.join-row .join-btn {
+  width:62%; padding:13px; border-radius:10px; border:none;
+  background:linear-gradient(135deg,#2a5aaa,#1a3a7a);
+  color:#60c0ff; font-family:'Bebas Neue',sans-serif;
+  font-size:1.15rem; letter-spacing:0.18em; cursor:pointer;
+  box-shadow:0 4px 18px rgba(48,96,160,0.45);
+  transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.join-row .join-btn:hover { background:linear-gradient(135deg,#3a6ac0,#2a4a9a); transform:translateY(-2px); box-shadow:0 6px 22px rgba(48,96,160,0.6); }
+.join-row .join-btn:active { transform:translateY(0); }
 .online-status { font-size:0.88rem; color:#6090b0; font-style:italic; text-align:center; min-height:1.2em; }
 .online-status.err { color:#ff6060; }
 .online-status.ok { color:#60e060; }
@@ -360,10 +371,10 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
     </div>
   </div>
   <button class="online-btn create" onclick="createOnlineRoom()">➕ Create Room</button>
-  <div style="color:#4a6080;font-size:0.85rem;">— or join with a code —</div>
+  <div style="color:#4a6080;font-size:0.85rem;letter-spacing:0.06em;">— or join with a code —</div>
   <div class="join-row">
-    <input type="text" id="joinCodeInput" placeholder="ENTER CODE" maxlength="6" />
-    <button onclick="joinOnlineRoom()">JOIN</button>
+    <input type="text" id="joinCodeInput" placeholder="ENTER CODE" maxlength="6" inputmode="numeric" />
+    <button class="join-btn" onclick="joinOnlineRoom()">🎮 Join Room</button>
   </div>
   <div class="online-status" id="onlineStatus"></div>
   <div id="roomCodeBox" style="display:none" class="room-code-box">
@@ -722,6 +733,9 @@ window.addEventListener('load', ()=>{
 
 document.getElementById('usernameInput').addEventListener('keydown', e=>{
   if (e.key==='Enter') submitUsername();
+});
+document.getElementById('joinCodeInput').addEventListener('keydown', e=>{
+  if (e.key==='Enter') joinOnlineRoom();
 });
 
 
