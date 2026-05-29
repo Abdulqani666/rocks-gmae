@@ -521,7 +521,6 @@ button.action { font-family:'Bebas Neue',sans-serif; letter-spacing:0.12em; font
     <h2>👁 Watching</h2>
     <p style="color:var(--text2);font-style:italic;margin:8px 0 16px;">This room is full. You are watching as a spectator.</p>
     <div class="btn-group">
-      <button class="modal-btn" onclick="document.getElementById('spectatorModal').classList.remove('open')">Watch Game</button>
       <button class="modal-btn cancel" onclick="document.getElementById('spectatorModal').classList.remove('open');backToMenu()">Leave</button>
     </div>
   </div>
@@ -1704,8 +1703,8 @@ function doRejoinSaved() {
   document.getElementById('rejoinBanner').style.display = 'none';
   setOnlineSt('Rejoining...', '');
   if (!socket || !socket.connected) {
+    // connectSocket sets up the connect handler which calls tryRejoin automatically
     connectSocket();
-    setTimeout(tryRejoin, 1200);
   } else {
     tryRejoin();
   }
@@ -1726,7 +1725,6 @@ function connectSocket() {
   socket = typeof io !== 'undefined' ? io() : null;
   if (!socket) { setOnlineSt('Socket.IO not loaded. Check server.','err'); return; }
 
-  socket.on('connect', ()=>setOnlineSt('Connected ✓','ok'));
   socket.on('connect_error', ()=>setOnlineSt('Cannot connect to server.','err'));
 
   socket.on('roomCreated', ({roomId,color})=>{
@@ -1748,7 +1746,6 @@ function connectSocket() {
   socket.on('roomExpired', ()=>{
     localStorage.removeItem('rocks_rejoin');
     document.getElementById('rejoinBanner').style.display='none';
-    onlineRoomId = null; myColor = null;
     setOnlineSt('Room no longer exists — start a new game.','err');
   });
 
@@ -1798,28 +1795,36 @@ function connectSocket() {
     recordResult(iWon); stopBgMusic(); draw();
   });
 
-  socket.on('opponentDisconnected', ({color, countdown})=>{
+  socket.on('opponentDisconnected', ({color})=>{
+    clearDisconnectCountdown();
     document.getElementById('message').textContent=
-      `⚠️ Opponent disconnected! Waiting for them to rejoin...`;
+      `⚠️ Opponent disconnected. Waiting for them to rejoin...`;
   });
 
   socket.on('opponentRejoined', ({color})=>{
+    clearDisconnectCountdown();
     document.getElementById('message').textContent=
       `✅ Opponent reconnected! Game continues.`;
   });
 
+  socket.on('opponentLeft', ({color})=>{
+    document.getElementById('message').textContent=
+      `❌ Opponent left the game after 5 minutes.`;
+    gameOver = true;
+  });
+
   socket.on('disconnect', ()=>{
-    // We got disconnected — try to rejoin
     if (onlineRoomId && myColor) {
       document.getElementById('message').textContent='⚠️ Connection lost. Reconnecting...';
-      setTimeout(()=>tryRejoin(), 2000);
     }
   });
 
+  // Single connect handler — fires on initial connect AND every reconnect
   socket.on('connect', ()=>{
-    // Reconnected — try to rejoin if we were in a game (delay avoids race condition)
+    setOnlineSt('Connected ✓','ok');
+    // If we were in a game, rejoin immediately (no setTimeout needed — already connected)
     if (onlineRoomId && myColor && gameMode==='online') {
-      setTimeout(tryRejoin, 500);
+      tryRejoin();
     }
   });
 
@@ -1851,13 +1856,24 @@ function connectSocket() {
   socket.on('joinedAsSpectator', ({roomId})=>{
     onlineRoomId=roomId; gameMode='online'; myColor=null;
     showScreen('gameScreen');
-    document.getElementById('spectatorModal').classList.add('open');
+    // Show spectator notice briefly then auto-dismiss after 3s
+    const modal = document.getElementById('spectatorModal');
+    modal.classList.add('open');
+    setTimeout(()=>{ modal.classList.remove('open'); }, 3000);
+    // Hide undo buttons for spectator
     const wBtn=document.getElementById('undoBtnW'), bBtn=document.getElementById('undoBtnB');
     if(wBtn) wBtn.style.display='none';
     if(bBtn) bBtn.style.display='none';
   });
 }
 
+let _disconnectInterval = null;
+function startDisconnectCountdown(seconds, color) {
+  // No longer used — kept for safety
+}
+function clearDisconnectCountdown() {
+  if (_disconnectInterval) { clearInterval(_disconnectInterval); _disconnectInterval=null; }
+}
 
 function tryRejoin() {
   if (!socket || !onlineRoomId || !myColor) return;
@@ -1870,8 +1886,12 @@ document.addEventListener('visibilitychange', ()=>{
   if (document.visibilityState === 'visible' && gameMode === 'online' && onlineRoomId && myColor) {
     if (!socket || !socket.connected) {
       document.getElementById('message').textContent = '⚠️ Reconnecting...';
+      // Reconnect socket — tryRejoin fires automatically from the connect event handler
       if (!socket) connectSocket();
-      setTimeout(tryRejoin, 1500);
+      else socket.connect();
+    } else {
+      // Already connected — just resync state
+      tryRejoin();
     }
   }
 });
@@ -2006,4 +2026,3 @@ function toggleMoveHistory() {
 </script>
 </body>
         </html>
-
