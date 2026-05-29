@@ -355,14 +355,9 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room) { socket.emit('roomExpired', { roomId }); return; }
 
-    // Guard: slot must be empty to rejoin
-    if (room.players[color] !== null) {
-      socket.emit('joinError', 'That slot is already taken.');
-      return;
-    }
-
     // Restore player control
     room.players[color] = socket.id;
+    room.aiControlling = null; // no AI takeover in this version
 
     // Clear countdown timer if still running
     if (room.disconnectTimers && room.disconnectTimers[color]) {
@@ -392,19 +387,57 @@ io.on('connection', (socket) => {
       // Mark player as disconnected (keep slot open for rejoin)
       room.players[color] = null;
       if (!room.disconnectTimers) room.disconnectTimers = {};
+      if (!room.aiControlling) room.aiControlling = null;
 
-      // Notify opponent — no AI, just wait for rejoin
-      io.to(id).emit('opponentDisconnected', { color, countdown: 60 });
+      // Notify opponent — just pause, no AI takeover
+      io.to(id).emit('opponentDisconnected', { color });
 
-      // After 60s just log — player can still rejoin anytime
+      // Keep room alive for 5 minutes waiting for rejoin
       room.disconnectTimers[color] = setTimeout(() => {
         if (!room.players[color]) {
-          console.log(`Player ${color} still disconnected after 60s in room ${id}`);
+          // Player never came back — end the game
+          room.gameOver = true;
+          io.to(id).emit('opponentLeft', { color });
+          console.log(`Player ${color} never rejoined room ${id} — game ended`);
         }
-      }, 60000);
+      }, 5 * 60 * 1000);
     }
   });
 });
 
-const PORT = process.env.PORT || 3000;
 
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`ROCKS server on port ${PORT}`));
+
+// ---- HELPERS ----
+function doRematch(room) {
+  room.board = initBoardState();
+  room.currentPlayer = 'W'; room.isFirstMove = true;
+  room.forcedRetaliation = false; room.retaliationTarget = null;
+  room.chainMode = false; room.chainRock = null;
+  room.lastMove = null; room.gameOver = false;
+  room.aiControlling = null;
+  room.undoStack = [];
+  room.undoCount = { W: 1, B: 1 };
+  room.pendingUndo = null;
+  room.rematchRequest = null;
+  room.createdAt = Date.now();
+  broadcastRoom(room);
+  io.to(room.id).emit('rematchStarted');
+}
+
+function applyUndo(room, color) {
+  if (room.undoStack.length === 0) return;
+  const snap = room.undoStack.pop();
+  room.board          = snap.board.map(r => [...r]);
+  room.currentPlayer  = snap.currentPlayer;
+  room.isFirstMove    = snap.isFirstMove;
+  room.forcedRetaliation = snap.forcedRetaliation;
+  room.retaliationTarget = snap.retaliationTarget;
+  room.chainMode      = snap.chainMode;
+  room.chainRock      = snap.chainRock;
+  room.lastMove       = snap.lastMove;
+  room.undoCount[color]--;
+  broadcastRoom(room);
+  io.to(room.id).emit('undoApplied', { by: color, remaining: room.undoCount });
+}
