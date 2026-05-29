@@ -184,7 +184,6 @@ function broadcastRoom(room) {
     spectatorCount: room.spectators ? room.spectators.length : 0
   };
   io.to(room.id).emit('gameState', state);
-  // Send to spectators too
   if (room.spectators) room.spectators.forEach(sid => io.to(sid).emit('gameState', state));
 }
 
@@ -208,7 +207,6 @@ io.on('connection', (socket) => {
   socket.on('joinRoom', ({ roomId }) => {
     const room = rooms.get(roomId.toUpperCase().trim());
     if (!room) { socket.emit('joinError', 'Room not found. Check the code and try again.'); return; }
-    // If full, join as spectator
     if (room.players.B) {
       if (!room.spectators) room.spectators = [];
       room.spectators.push(socket.id);
@@ -241,7 +239,6 @@ io.on('connection', (socket) => {
     if (!isMoveValid(room.board, fromR, fromC, mv, room.isFirstMove, room.currentPlayer)) {
       socket.emit('moveError', 'Invalid move'); return;
     }
-    // Push snapshot for undo before applying move
     room.undoStack.push(snapshotRoom(room));
     if (room.undoStack.length > 10) room.undoStack.shift();
     room.lastMove = { fromR, fromC, toR: mv.r, toC: mv.c, player: playerColor };
@@ -307,11 +304,9 @@ io.on('connection', (socket) => {
     const color = room.players.W === socket.id ? 'W' : 'B';
     const opponent = color === 'W' ? 'B' : 'W';
     room.rematchRequest = { requestedBy: color };
-    // Notify opponent
     if (room.players[opponent]) {
       io.to(room.players[opponent]).emit('rematchRequested', { by: color });
     } else {
-      // No opponent (AI game or disconnected) — just reset
       doRematch(room);
     }
   });
@@ -343,11 +338,9 @@ io.on('connection', (socket) => {
     if (room.pendingUndo) { socket.emit('undoError', 'Undo already pending.'); return; }
     const justMoved = color === 'W' ? room.currentPlayer === 'B' : room.currentPlayer === 'W';
     if (!justMoved) { socket.emit('undoError', 'You can only undo your own last move.'); return; }
-    // Apply instantly — no opponent approval needed
     applyUndo(room, color);
   });
 
-  // acceptUndo / declineUndo kept as no-ops for safety (old clients)
   socket.on('acceptUndo', () => {});
   socket.on('declineUndo', () => {});
 
@@ -355,11 +348,9 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room) { socket.emit('roomExpired', { roomId }); return; }
 
-    // Restore player control
     room.players[color] = socket.id;
-    room.aiControlling = null; // no AI takeover in this version
+    room.aiControlling = null;
 
-    // Clear countdown timer if still running
     if (room.disconnectTimers && room.disconnectTimers[color]) {
       clearTimeout(room.disconnectTimers[color]);
       delete room.disconnectTimers[color];
@@ -375,7 +366,6 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log('Disconnected:', socket.id);
     for (const [id, room] of rooms.entries()) {
-      // Remove spectator if applicable
       if (room.spectators) {
         const si = room.spectators.indexOf(socket.id);
         if (si !== -1) { room.spectators.splice(si, 1); broadcastRoom(room); continue; }
@@ -384,18 +374,14 @@ io.on('connection', (socket) => {
                   : room.players.B === socket.id ? 'B' : null;
       if (!color) continue;
 
-      // Mark player as disconnected (keep slot open for rejoin)
       room.players[color] = null;
       if (!room.disconnectTimers) room.disconnectTimers = {};
       if (!room.aiControlling) room.aiControlling = null;
 
-      // Notify opponent — just pause, no AI takeover
       io.to(id).emit('opponentDisconnected', { color });
 
-      // Keep room alive for 5 minutes waiting for rejoin
       room.disconnectTimers[color] = setTimeout(() => {
         if (!room.players[color]) {
-          // Player never came back — end the game
           room.gameOver = true;
           io.to(id).emit('opponentLeft', { color });
           console.log(`Player ${color} never rejoined room ${id} — game ended`);
@@ -405,7 +391,7 @@ io.on('connection', (socket) => {
   });
 });
 
-
+// ---- SERVER DEPLOYMENT FIXED ----
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`ROCKS server on port ${PORT}`));
 
