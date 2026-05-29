@@ -178,7 +178,6 @@ function broadcastRoom(room) {
     chainMode: room.chainMode,
     chainRock: room.chainRock,
     lastMove: room.lastMove,
-    aiControlling: room.aiControlling || null,
     gameOver: room.gameOver,
     players: { W: !!room.players.W, B: !!room.players.B },
     undoCount: room.undoCount,
@@ -292,7 +291,6 @@ io.on('connection', (socket) => {
     }
     room.currentPlayer = room.currentPlayer === 'W' ? 'B' : 'W';
     broadcastRoom(room);
-    if (room.aiControlling === room.currentPlayer) scheduleAiMove(room);
   });
 
   socket.on('stopChain', ({ roomId }) => {
@@ -301,7 +299,6 @@ io.on('connection', (socket) => {
     room.chainMode = false; room.chainRock = null;
     room.currentPlayer = room.currentPlayer === 'W' ? 'B' : 'W';
     broadcastRoom(room);
-    if (room.aiControlling === room.currentPlayer) scheduleAiMove(room);
   });
 
   socket.on('requestRematch', ({ roomId }) => {
@@ -358,9 +355,14 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room) { socket.emit('roomExpired', { roomId }); return; }
 
+    // Guard: slot must be empty to rejoin
+    if (room.players[color] !== null) {
+      socket.emit('joinError', 'That slot is already taken.');
+      return;
+    }
+
     // Restore player control
     room.players[color] = socket.id;
-    room.aiControlling = room.aiControlling === color ? null : room.aiControlling;
 
     // Clear countdown timer if still running
     if (room.disconnectTimers && room.disconnectTimers[color]) {
@@ -390,152 +392,18 @@ io.on('connection', (socket) => {
       // Mark player as disconnected (keep slot open for rejoin)
       room.players[color] = null;
       if (!room.disconnectTimers) room.disconnectTimers = {};
-      if (!room.aiControlling) room.aiControlling = null;
 
-      // Notify opponent
+      // Notify opponent — no AI, just wait for rejoin
       io.to(id).emit('opponentDisconnected', { color, countdown: 60 });
 
-      // Start countdown — AI takes over immediately
-      room.aiControlling = color;
-      scheduleAiMove(room);
-
-      // After 60s mark as permanent AI (player can still rejoin anytime)
+      // After 60s just log — player can still rejoin anytime
       room.disconnectTimers[color] = setTimeout(() => {
         if (!room.players[color]) {
-          io.to(id).emit('aiTookOver', { color });
-          console.log(`AI permanently took over ${color} in room ${id}`);
+          console.log(`Player ${color} still disconnected after 60s in room ${id}`);
         }
       }, 60000);
     }
   });
 });
 
-// ---- SERVER-SIDE AI ----
-function getAiMove(board, color, isFirstMove) {
-  let allMoves = [];
-
-  if (isFirstMove && color === 'W') {
-    for (let r=0; r<GRID; r++) for (let c=0; c<GRID; c++) {
-      const v = board[r][c]; if (v!=='W'&&v!=='WD') continue;
-      const nr = r+1; if (nr>=GRID) continue;
-      if (board[nr][c]===0) allMoves.push({fr:r,fc:c,mv:{r:nr,c:c,type:'move'}});
-    }
-  } else {
-    for (let r=0; r<GRID; r++) for (let c=0; c<GRID; c++) {
-      const v = board[r][c];
-      const mine = color==='W'?(v==='W'||v==='WD'):(v==='B'||v==='BD');
-      if (mine) getAllMoves(board,r,c,false).forEach(m=>allMoves.push({fr:r,fc:c,mv:m}));
-    }
-  }
-
-  if (!allMoves.length) return null;
-
-  // Filter safe moves
-  const opponent = color==='W'?'B':'W';
-  const safe = allMoves.filter(x=>{
-    const nb = applyMove(board,x.fr,x.fc,x.mv);
-    return playerHasAnyMoves(nb,opponent);
-  });
-  const pool = safe.length>0?safe:allMoves;
-
-  // Prefer eating
-  const eats = pool.filter(x=>x.mv.type==='eat');
-  return eats.length>0
-    ? eats[Math.floor(Math.random()*eats.length)]
-    : pool[Math.floor(Math.random()*pool.length)];
-}
-
-function scheduleAiMove(room) {
-  if (!room || room.gameOver) return;
-  const aiColor = room.aiControlling;
-  if (!aiColor) return;
-  if (room.currentPlayer !== aiColor) return; // not AI's turn yet
-
-  const delay = 900 + Math.random()*600; // 0.9–1.5s feels natural
-  room.aiMoveTimeout = setTimeout(() => {
-    doAiMove(room);
-  }, delay);
-}
-
-function doAiMove(room) {
-  if (!room || room.gameOver) return;
-  if (room.currentPlayer !== room.aiControlling) return;
-
-  const chosen = getAiMove(room.board, room.aiControlling, room.isFirstMove);
-  if (!chosen) { endAiTurn(room); return; }
-
-  room.lastMove = { fromR:chosen.fr, fromC:chosen.fc, toR:chosen.mv.r, toC:chosen.mv.c, player:room.aiControlling };
-  room.board = applyMove(room.board, chosen.fr, chosen.fc, chosen.mv);
-  if (room.isFirstMove) room.isFirstMove = false;
-
-  // Chain eat
-  if (chosen.mv.type==='eat') {
-    let lr=chosen.mv.r, lc=chosen.mv.c;
-    let chains = getEatMoves(room.board, lr, lc);
-    while (chains.length>0 && Math.random()>0.4) {
-      const ce = chains[Math.floor(Math.random()*chains.length)];
-      room.board = applyMove(room.board, lr, lc, ce);
-      lr=ce.r; lc=ce.c;
-      chains = getEatMoves(room.board, lr, lc);
-    }
-    room.lastMove.toR=lr; room.lastMove.toC=lc;
-  }
-
-  // Check win
-  const wc=countRocks(room.board,'W'), bc=countRocks(room.board,'B');
-  if (wc<=1||bc<=1) {
-    room.gameOver=true;
-    broadcastRoom(room);
-    io.to(room.id).emit('gameOver', { winner: wc>1?'W':'B' });
-    return;
-  }
-
-  endAiTurn(room);
-}
-
-function endAiTurn(room) {
-  room.chainMode=false; room.chainRock=null;
-  room.currentPlayer = room.currentPlayer==='W'?'B':'W';
-  broadcastRoom(room);
-
-  // If next turn is also AI, schedule again
-  if (room.aiControlling === room.currentPlayer) {
-    scheduleAiMove(room);
-  }
-}
-
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`ROCKS server on port ${PORT}`));
-
-// ---- HELPERS ----
-function doRematch(room) {
-  room.board = initBoardState();
-  room.currentPlayer = 'W'; room.isFirstMove = true;
-  room.forcedRetaliation = false; room.retaliationTarget = null;
-  room.chainMode = false; room.chainRock = null;
-  room.lastMove = null; room.gameOver = false;
-  room.aiControlling = null;
-  room.undoStack = [];
-  room.undoCount = { W: 1, B: 1 };
-  room.pendingUndo = null;
-  room.rematchRequest = null;
-  room.createdAt = Date.now();
-  broadcastRoom(room);
-  io.to(room.id).emit('rematchStarted');
-}
-
-function applyUndo(room, color) {
-  if (room.undoStack.length === 0) return;
-  const snap = room.undoStack.pop();
-  room.board          = snap.board.map(r => [...r]);
-  room.currentPlayer  = snap.currentPlayer;
-  room.isFirstMove    = snap.isFirstMove;
-  room.forcedRetaliation = snap.forcedRetaliation;
-  room.retaliationTarget = snap.retaliationTarget;
-  room.chainMode      = snap.chainMode;
-  room.chainRock      = snap.chainRock;
-  room.lastMove       = snap.lastMove;
-  room.undoCount[color]--;
-  broadcastRoom(room);
-  io.to(room.id).emit('undoApplied', { by: color, remaining: room.undoCount });
-}
